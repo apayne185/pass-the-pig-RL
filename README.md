@@ -1,1 +1,21 @@
-# pass-the-pig-RL
+# Pass the Pigs (Dice Game)
+
+Quick introduction: Pass the Pigs is a version of the dice game Pig (created by David Moffatt in 1977) and uses asymmetrical throwing dice. 
+
+--> Each turn, you throw 2 model pigs (each has a dot on its side) and the player will gain/lose points or be eliminated from the game. 
+--> Winner is first player to reach a predetermined score (lets say 100).
+
+### Rules
+![alt text](https://github.com/apayne185/pass-the-pig-RL/blob/main/pass_the_pigs/game/game-rules.png?raw=true)
+
+
+### Game State
+
+## Directory 
+
+## Project Overview
+### Algorithms 
+
+
+
+## Running the Code

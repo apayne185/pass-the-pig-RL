@@ -1,3 +1,5 @@
+#Pass the Pigs 2 Players Env.py
+
 """
 Pass the Pigs - 2 Players Gymnasium Environment
 Each player can implement a trainable agent/model
@@ -5,6 +7,8 @@ TO DO:
 * For compatibilty with OpenAI gym, only Agent[0] will be a trainable agent
 * Adapt to an AEC scheme for future multiagent RL environment compatibility
 """
+
+
 import glob, os, random, time, copy
 import numpy as np
 

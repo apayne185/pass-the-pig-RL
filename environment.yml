@@ -1,0 +1,14 @@
+name: ptp
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - numpy
+  - pygame
+  - pytorch
+  - tensorboard
+  - pip
+  - pip:
+      - gym==0.26.2
+      - gym-notices

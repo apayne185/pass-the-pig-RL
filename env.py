@@ -1,4 +1,4 @@
-#Pass the Pigs 2 Players Env.py
+#Pass the Pigs 2 Players Env.py  USED TO BE MAIN.PY
 
 """
 Pass the Pigs - 2 Players Gymnasium Environment
@@ -20,6 +20,10 @@ from typing import Optional, Dict
 import json
 # from datetime import datetime
 # date_string = f'{datetime.now():%Y-%m-%d %H:%M:%S%z}' # returns '2024-01-15 23:58:18'
+
+
+
+
 
 # In[]: GAME ENVIRONMENT SETUP
 # +-------------------------------------+
@@ -72,6 +76,10 @@ out_prob = [0.001, 0.0386, 0.1922, 0.1922, 0.31, 0.1168, 0.0846, 0.0525, 0.0056,
 # for k in range(n := len(THROWS)): THROWS[k][1] = 1/n # equi-probable...
 print(THROWS)  
 
+
+
+
+
 # In[]: GAME INTERFACE
 # +-------------------------------------+
 # |            GAME INTERFACE           |
@@ -86,6 +94,9 @@ if RENDER_MODE == 'interactive':
     assert WITH_HOG_CALLS, "Interactive Mode is setup for Hog Calls options"
     import pygame as pg
 
+
+
+
 # +-------------------------------------+
 # |   pygame - Utility Functions        |
 # +-------------------------------------+
@@ -96,6 +107,10 @@ def draw_text(screen,font,text,color,pos,center=False,antialias=False):
         screen.blit(text_surf, text_rect)
       else:
         screen.blit(text_surf, dest=pos)
+
+
+
+
 
 # In[]: TRAINING & AGENTS
 # +-------------------------------------+
@@ -118,6 +133,11 @@ if TRAINING:
     writer.close()
     """
     AVG_EP = 1_000 # number of episodes for averaged rewards reporting/logging
+
+
+
+
+
 
 # +-------------------------------------+
 # |         Agent Functions             |
@@ -232,6 +252,8 @@ class PassThePigsAgent():
             self.QTable[old_state][action] = qValue + self.learning_rate * ( qPred - qValue )
             #--------------------------------------------------------------------------------
             self.episode_reward += reward
+
+            #this is where we save log stats to tensorboard 
             if terminated:
                 self.episode_rewards[self.episode % AVG_EP] = self.episode_reward
                 self.episode += 1
@@ -276,7 +298,12 @@ def train(n_training_episodes, min_epsilon, max_epsilon, decay_rate, env, max_st
       # Our state is the new state
       state = new_state
   return Qtable
-'''  
+'''    
+
+
+
+
+
 # In[]: ENVIRONMENT
 # +-------------------------------------+
 # |      Environment Functions          |
@@ -372,18 +399,19 @@ class PassThePigs_2Players_Env(gym.Env):
             pg.key.set_repeat(0)
 
     def _roll(self):
-                      idx = np.random.choice(range(len(THROWS)), 1, p=[t[1] for t in THROWS])
-                      self.throw = THROWS[idx[0]]
-                      if VERBOSE: print(self.throw)
-                      if render_mode:
-                            # sample = random.sample(self.imgs, 2)
-                            self.sample = []
-                            print([img for img in self.imgs if self.throw[0][0] in img])
-                            s0 = random.sample([img for img in self.imgs if self.throw[0][0] in img], 1)[0]
-                            self.sample.append(s0)
-                            print([img for img in self.imgs if self.throw[0][1] in img])
-                            s1 = random.sample([img for img in self.imgs if self.throw[0][1] in img], 1)[0]
-                            self.sample.append(s1)
+        idx = np.random.choice(range(len(THROWS)), 1, p=[t[1] for t in THROWS])
+        self.throw = THROWS[idx[0]]
+        if VERBOSE: print(self.throw)
+        if render_mode:
+             # sample = random.sample(self.imgs, 2)
+            self.sample = []
+            print([img for img in self.imgs if self.throw[0][0] in img])
+            s0 = random.sample([img for img in self.imgs if self.throw[0][0] in img], 1)[0]
+            self.sample.append(s0)
+            print([img for img in self.imgs if self.throw[0][1] in img])
+            s1 = random.sample([img for img in self.imgs if self.throw[0][1] in img], 1)[0]
+            self.sample.append(s1)
+
 
     def _get_action(self): # interactive mode only...
           if not self.render_mode == "interactive": return

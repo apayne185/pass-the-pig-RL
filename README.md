@@ -9,6 +9,14 @@ Quick introduction: Pass the Pigs is a version of the dice game Pig (created by 
 ![alt text](https://github.com/apayne185/pass-the-pig-RL/blob/main/pass_the_pigs/game/game-rules.png?raw=true)
 
 
+
+
+## stuff to modify 
+- add 2+ players? make it collaborative? 
+- qtable vs montecarlo? (dynamic programming not avalible)
+- try different modes, explore how to learn with hog calls more
+
+
 ### Game State
 
 ## Directory 
@@ -19,3 +27,7 @@ Quick introduction: Pass the Pigs is a version of the dice game Pig (created by 
 
 
 ## Running the Code
+
+
+
+*need to analyze the final results using the graph examples in the pdf slideshow*

@@ -13,8 +13,15 @@ Quick introduction: Pass the Pigs is a version of the dice game Pig (created by 
 
 ## stuff to modify 
 - add 2+ players? make it collaborative? 
-- qtable vs montecarlo? (dynamic programming not avalible)
-- try different modes, explore how to learn with hog calls more
+- **try cournot variant**
+- **try sequential variant (stackelberg)** --> close to what we already have
+- progress further with hog calls --> we already have a withhogcall flag
+- multiagent (we train both agents to see if they converge to stable strategies)
+    --> maybe try collusion or coalitions if 2+ players
+- progressive training (curriculum learning)
+    1. start with dumb opponents - roller 50% 
+    2. then smarter opponents (baseline threshold 15, 20,...)
+    3. then mirror match (agent v itself --> self play)
 
 
 ### Game State
@@ -22,7 +29,7 @@ Quick introduction: Pass the Pigs is a version of the dice game Pig (created by 
 ## Directory 
 
 ## Project Overview
-### Algorithms 
+### Methods 
 
 
 

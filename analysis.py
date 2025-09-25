@@ -6,7 +6,7 @@ Based on the analysis from the Jupyter notebook
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from improved_env import ImprovedPassThePigsEnv, ImprovedPassThePigsAgent, play_match
+from env import PassThePigsEnv, PassThePigsAgent, play_match
 import seaborn as sns
 
 class PassThePigsAnalyzer:
@@ -16,7 +16,7 @@ class PassThePigsAnalyzer:
 
     def __init__(self, target_score=100):
         self.target_score = target_score
-        self.env = ImprovedPassThePigsEnv(target_score=target_score)
+        self.env = PassThePigsEnv(target_score=target_score)
 
     def extract_hold_threshold(self, agent, own_score, opp_score, max_turn=30):
         """
@@ -173,11 +173,11 @@ class PassThePigsAnalyzer:
         """
         # Test against various opponents
         opponents = {
-            'Random': ImprovedPassThePigsAgent(mode='random'),
-            'Threshold-10': ImprovedPassThePigsAgent(mode='threshold', threshold=10),
-            'Threshold-15': ImprovedPassThePigsAgent(mode='threshold', threshold=15),
-            'Threshold-20': ImprovedPassThePigsAgent(mode='threshold', threshold=20),
-            'Threshold-25': ImprovedPassThePigsAgent(mode='threshold', threshold=25),
+            'Random': PassThePigsAgent(mode='random'),
+            'Threshold-10': PassThePigsAgent(mode='threshold', threshold=10),
+            'Threshold-15': PassThePigsAgent(mode='threshold', threshold=15),
+            'Threshold-20': PassThePigsAgent(mode='threshold', threshold=20),
+            'Threshold-25': PassThePigsAgent(mode='threshold', threshold=25),
         }
 
         results = {}
@@ -223,8 +223,8 @@ class PassThePigsAnalyzer:
 
         for i, thresh1 in enumerate(thresholds):
             for j, thresh2 in enumerate(thresholds):
-                agent1 = ImprovedPassThePigsAgent(mode='threshold', threshold=thresh1)
-                agent2 = ImprovedPassThePigsAgent(mode='threshold', threshold=thresh2)
+                agent1 = PassThePigsAgent(mode='threshold', threshold=thresh1)
+                agent2 = PassThePigsAgent(mode='threshold', threshold=thresh2)
 
                 win_rate = play_match(self.env, agent1, agent2, num_games, training=False)
                 win_matrix[i, j] = win_rate
@@ -312,9 +312,9 @@ class PassThePigsAnalyzer:
 
         for i, thresh in enumerate([None, 10, 15, 20, 25]):
             if thresh is None:
-                opp = ImprovedPassThePigsAgent(mode='random')
+                opp = PassThePigsAgent(mode='random')
             else:
-                opp = ImprovedPassThePigsAgent(mode='threshold', threshold=thresh)
+                opp = PassThePigsAgent(mode='threshold', threshold=thresh)
 
             wr = play_match(self.env, agent, opp, 200, training=False)
             win_rates.append(wr)
@@ -352,9 +352,9 @@ def demo_analysis():
     analyzer = PassThePigsAnalyzer()
 
     # Create and train a Q-learning agent
-    from improved_env import curriculum_training
-    env = ImprovedPassThePigsEnv()
-    q_agent = ImprovedPassThePigsAgent(mode='q_learning')
+    from env import curriculum_training
+    env = PassThePigsEnv()
+    q_agent = PassThePigsAgent(mode='q_learning')
 
     print("Training Q-learning agent (quick demo)...")
     q_agent = curriculum_training(env, q_agent, games_per_phase=1000)
@@ -362,9 +362,9 @@ def demo_analysis():
     # Create baseline agents for comparison
     agents = [
         q_agent,
-        ImprovedPassThePigsAgent(mode='threshold', threshold=15),
-        ImprovedPassThePigsAgent(mode='threshold', threshold=20),
-        ImprovedPassThePigsAgent(mode='threshold', threshold=25),
+        PassThePigsAgent(mode='threshold', threshold=15),
+        PassThePigsAgent(mode='threshold', threshold=20),
+        PassThePigsAgent(mode='threshold', threshold=25),
     ]
 
     agent_names = ['Q-Learning', 'Threshold-15', 'Threshold-20', 'Threshold-25']

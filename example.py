@@ -1,8 +1,8 @@
 """
-Simple example showing how to use the improved Pass the Pigs environment
+Simple example showing how to use the Pass the Pigs environment
 """
 
-from improved_env import ImprovedPassThePigsEnv, ImprovedPassThePigsAgent, play_match, curriculum_training
+from env import PassThePigsEnv, PassThePigsAgent, play_match, curriculum_training
 from analysis import PassThePigsAnalyzer
 import matplotlib.pyplot as plt
 
@@ -11,11 +11,11 @@ def basic_example():
     print("=== Basic Pass the Pigs Example ===")
 
     # Create environment
-    env = ImprovedPassThePigsEnv()
+    env = PassThePigsEnv()
 
     # Create simple agents
-    agent1 = ImprovedPassThePigsAgent(mode='threshold', threshold=15)
-    agent2 = ImprovedPassThePigsAgent(mode='threshold', threshold=20)
+    agent1 = PassThePigsAgent(mode='threshold', threshold=15)
+    agent2 = PassThePigsAgent(mode='threshold', threshold=20)
 
     # Play some games
     win_rate = play_match(env, agent1, agent2, num_games=1000)
@@ -24,7 +24,7 @@ def basic_example():
     # Try different thresholds
     print("\nTesting different thresholds against threshold=20:")
     for threshold in [5, 10, 15, 20, 25, 30]:
-        test_agent = ImprovedPassThePigsAgent(mode='threshold', threshold=threshold)
+        test_agent = PassThePigsAgent(mode='threshold', threshold=threshold)
         wr = play_match(env, test_agent, agent2, num_games=500)
         print(f"  Threshold {threshold:2d}: {wr:.3f}")
 
@@ -33,8 +33,8 @@ def training_example():
     print("\n=== Q-Learning Training Example ===")
 
     # Create environment and Q-learning agent
-    env = ImprovedPassThePigsEnv()
-    q_agent = ImprovedPassThePigsAgent(mode='q_learning')
+    env = PassThePigsEnv()
+    q_agent = PassThePigsAgent(mode='q_learning')
 
     print("Training Q-learning agent...")
     print("  Initial epsilon:", q_agent.epsilon)
@@ -49,10 +49,10 @@ def training_example():
     # Test against various opponents
     print("\nTesting trained agent:")
     opponents = {
-        'Random': ImprovedPassThePigsAgent(mode='random'),
-        'Threshold-15': ImprovedPassThePigsAgent(mode='threshold', threshold=15),
-        'Threshold-20': ImprovedPassThePigsAgent(mode='threshold', threshold=20),
-        'Threshold-25': ImprovedPassThePigsAgent(mode='threshold', threshold=25),
+        'Random': PassThePigsAgent(mode='random'),
+        'Threshold-15': PassThePigsAgent(mode='threshold', threshold=15),
+        'Threshold-20': PassThePigsAgent(mode='threshold', threshold=20),
+        'Threshold-25': PassThePigsAgent(mode='threshold', threshold=25),
     }
 
     for name, opponent in opponents.items():
@@ -66,8 +66,8 @@ def visualization_example():
     print("\n=== Visualization Example ===")
 
     # Train a Q-learning agent
-    env = ImprovedPassThePigsEnv()
-    q_agent = ImprovedPassThePigsAgent(mode='q_learning')
+    env = PassThePigsEnv()
+    q_agent = PassThePigsAgent(mode='q_learning')
     q_agent = curriculum_training(env, q_agent, games_per_phase=2000)
 
     # Create analyzer
@@ -90,9 +90,9 @@ def visualization_example():
     # 4. Compare with baseline strategies
     baseline_agents = [
         q_agent,
-        ImprovedPassThePigsAgent(mode='threshold', threshold=15),
-        ImprovedPassThePigsAgent(mode='threshold', threshold=20),
-        ImprovedPassThePigsAgent(mode='threshold', threshold=25)
+        PassThePigsAgent(mode='threshold', threshold=15),
+        PassThePigsAgent(mode='threshold', threshold=20),
+        PassThePigsAgent(mode='threshold', threshold=25)
     ]
     names = ['Q-Learning', 'Threshold-15', 'Threshold-20', 'Threshold-25']
 
@@ -130,8 +130,8 @@ def comprehensive_example():
     print("\n=== Comprehensive Analysis Example ===")
 
     # Train agent
-    env = ImprovedPassThePigsEnv()
-    q_agent = ImprovedPassThePigsAgent(mode='q_learning')
+    env = PassThePigsEnv()
+    q_agent = PassThePigsAgent(mode='q_learning')
     q_agent = curriculum_training(env, q_agent, games_per_phase=2500)
 
     # Create analyzer and generate comprehensive analysis

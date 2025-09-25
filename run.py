@@ -1,17 +1,17 @@
-from improved_env import ImprovedPassThePigsEnv, ImprovedPassThePigsAgent, play_match, curriculum_training
+from env import PassThePigsEnv, PassThePigsAgent, play_match, curriculum_training
 from analysis import PassThePigsAnalyzer
 import matplotlib.pyplot as plt
 
-def demo_improved_environment():
-    """Demo of the improved environment with better agents"""
-    print("=== Pass the Pigs - Improved Environment Demo ===")
+def demo_environment():
+    """Demo of the environment with better agents"""
+    print("=== Pass the Pigs - Environment Demo ===")
 
     # Create environment
-    env = ImprovedPassThePigsEnv(render_mode="human")
+    env = PassThePigsEnv(render_mode="human")
 
     # Create agents
-    q_agent = ImprovedPassThePigsAgent(mode='q_learning')
-    baseline_agent = ImprovedPassThePigsAgent(mode='threshold', threshold=20)
+    q_agent = PassThePigsAgent(mode='q_learning')
+    baseline_agent = PassThePigsAgent(mode='threshold', threshold=20)
 
     print("\n1. Training Q-learning agent with curriculum learning...")
     trained_agent = curriculum_training(env, q_agent, games_per_phase=2000)
@@ -30,7 +30,7 @@ def demo_analysis():
     print("\n=== Strategy Analysis Demo ===")
 
     # Get trained agents
-    env, trained_agent, baseline_agent = demo_improved_environment()
+    env, trained_agent, baseline_agent = demo_environment()
 
     # Create analyzer
     analyzer = PassThePigsAnalyzer()
@@ -42,9 +42,9 @@ def demo_analysis():
     print("\n4. Comparing different strategies...")
     agents = [
         trained_agent,
-        ImprovedPassThePigsAgent(mode='threshold', threshold=15),
-        ImprovedPassThePigsAgent(mode='threshold', threshold=20),
-        ImprovedPassThePigsAgent(mode='threshold', threshold=25),
+        PassThePigsAgent(mode='threshold', threshold=15),
+        PassThePigsAgent(mode='threshold', threshold=20),
+        PassThePigsAgent(mode='threshold', threshold=25),
     ]
 
     agent_names = ['Q-Learning', 'Threshold-15', 'Threshold-20', 'Threshold-25']
@@ -62,15 +62,15 @@ def interactive_demo():
     print("\n=== Interactive Demo ===")
 
     # Create environment (you can add pygame support later)
-    env = ImprovedPassThePigsEnv(render_mode="human")
+    env = PassThePigsEnv(render_mode="human")
 
     # Get a trained agent
-    q_agent = ImprovedPassThePigsAgent(mode='q_learning')
+    q_agent = PassThePigsAgent(mode='q_learning')
     q_agent = curriculum_training(env, q_agent, games_per_phase=1000)
 
     print("\nPlaying 5 games between trained Q-agent and threshold-20 agent:")
 
-    baseline_agent = ImprovedPassThePigsAgent(mode='threshold', threshold=20)
+    baseline_agent = PassThePigsAgent(mode='threshold', threshold=20)
 
     for game in range(5):
         print(f"\n--- Game {game + 1} ---")
@@ -104,14 +104,14 @@ def interactive_demo():
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Pass the Pigs - Improved Version')
+    parser = argparse.ArgumentParser(description='Pass the Pigs - RL Environment')
     parser.add_argument('--mode', choices=['demo', 'analysis', 'interactive'],
                        default='demo', help='Run mode')
 
     args = parser.parse_args()
 
     if args.mode == 'demo':
-        demo_improved_environment()
+        demo_environment()
     elif args.mode == 'analysis':
         demo_analysis()
     elif args.mode == 'interactive':

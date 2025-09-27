@@ -11,15 +11,15 @@ TO DO:
 
 import glob, os, random, time, copy
 import numpy as np
-
 import gymnasium as gym
 from gymnasium import spaces
 # from typing import Any, Dict, Optional, Tuple, Union
 from typing import Optional, Dict
-
 import json
 # from datetime import datetime
 # date_string = f'{datetime.now():%Y-%m-%d %H:%M:%S%z}' # returns '2024-01-15 23:58:18'
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
 
 
@@ -33,10 +33,13 @@ NUM_PLAYERS = 2 # WARNING!!! ONLY PREPARED FOR 2 PLAYERS
 RULES_B = True  # game ends as soon as any player reaches GOAL
 WITH_HOG_CALLS = True # False
 
+AVG_EP = 1000
+
 if WITH_HOG_CALLS:
     ACTIONS  = ['ROLL','PASS','HOG_CALL_1','HOG_CALL_2']
 else:
     ACTIONS  = ['ROLL','PASS']
+
 NONE     = -1
 ROLL     = 0
 PASS     = 1
@@ -116,8 +119,7 @@ def draw_text(screen,font,text,color,pos,center=False,antialias=False):
 # +-------------------------------------+
 # |      Tensorboard Logging            |
 # +-------------------------------------+
-import torch
-from torch.utils.tensorboard import SummaryWriter
+
 
 TRAINING = False # True
 if TRAINING:
@@ -147,11 +149,15 @@ model_name  = f'QT_{STAGE}'
 
 # Training parameters
 learning_rate = 0.8 # 0.8 # 0.1
-min_LR = 0.1; decay_rate_LR = 1e-6
-gamma = 0.95 # 0.99              
+min_LR = 0.1 
+decay_rate_LR = 1e-6
+gamma = 0.95 # 0.99   
+
 # Exploration parameters (for first training from scratch)
-max_epsilon = 1.0; min_epsilon = 0.05; decay_rate = 2e-6
-# min_epsilon = 0.01; decay_rate = 0.01
+max_epsilon = 1.0
+min_epsilon = 0.05  # min_epsilon = 0.01
+decay_rate = 2e-6   # decay_rate = 0.01
+
 
 def epsilon_greedy_policy(Qtable, state, epsilon): # greedy policy when epsilon=0
     random_int = random.uniform(0,1)
@@ -161,12 +167,17 @@ def epsilon_greedy_policy(Qtable, state, epsilon): # greedy policy when epsilon=
         action = env.action_space.sample()
     return action
 
+
 # Rate at which we set the learning rate. Typically, keep this constant
 def learning_schedule(episode):
     return min_LR + (learning_rate - min_LR)*np.exp(-decay_rate_LR*episode)
 
+#same goes for the episilon, we decrease
 def epsilon_schedule(episode):
     return min_epsilon + (max_epsilon - min_epsilon)*np.exp(-decay_rate*episode)
+
+
+
 
 def save_QT_model(agent,model_name):
     # Write config data to a file
@@ -323,9 +334,7 @@ class PassThePigs_2Players_Env(gym.Env):
         "FPS": 20,  # pygame
     }
 
-    def __init__(self,
-                 render_mode: Optional[str] = None,
-                ):
+    def __init__(self, render_mode: Optional[str] = None):
         super(PassThePigs_2Players_Env, self).__init__()
         self.render_mode = render_mode
         self.last_game_info = ""
@@ -402,7 +411,7 @@ class PassThePigs_2Players_Env(gym.Env):
         idx = np.random.choice(range(len(THROWS)), 1, p=[t[1] for t in THROWS])
         self.throw = THROWS[idx[0]]
         if VERBOSE: print(self.throw)
-        if render_mode:
+        if self.render_mode:
              # sample = random.sample(self.imgs, 2)
             self.sample = []
             print([img for img in self.imgs if self.throw[0][0] in img])
@@ -674,14 +683,15 @@ class PassThePigs_2Players_Env(gym.Env):
         if self.render_mode:
             pg.quit()
 
+
 # In[]: PLAY GAMES
 run_game = 0
 
-def play_games(max_games=10_000,verbose=False,training=False):
+def play_games(env, max_games=10_000,verbose=False,training=False):
     global run_game
     isRunning = True
     num_games = 0
-    num_games1 = 0 # games won by player B
+    num_games1 = 0 # games won by player B/opposition
 
     while(isRunning):
         obs, info = env.reset()
@@ -750,6 +760,13 @@ def play_games(max_games=10_000,verbose=False,training=False):
       
     return num_games,num_games1
 
+
+
+
+
+
+
+
 # In[]: MAIN
 if __name__ == "__main__":
     render_mode = RENDER_MODE
@@ -781,7 +798,7 @@ if __name__ == "__main__":
             # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=75)
             # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=100) # 100% (always) roll...
 
-            num_games,num_games1 = play_games(GAMES_PER_EPOCH,training=TRAINING)
+            num_games,num_games1 = play_games(env, GAMES_PER_EPOCH,training=TRAINING)
 
             ratio1 = num_games1/num_games*100
             ellapsed = time.time() - start # This gives the execution time in seconds.

@@ -689,74 +689,100 @@ run_game = 0
 
 def play_games(env, max_games=10_000,verbose=False,training=False):
     global run_game
-    isRunning = True
+    # isRunning = True
     num_games = 0
-    num_games1 = 0 # games won by player B/opposition
+    # num_games1 = 0 # games won by player B/opposition
+    wins = [0,0]     #wins for player 1 [0], wins for player 2 [1]
 
-    while(isRunning):
+    # while(isRunning):
+    while num_games < max_games: 
         obs, info = env.reset()
-        env.render()
-        if render_mode: time.sleep(3)
+        done = False 
 
-        done = False
+        if render_mode: 
+            time.sleep(3)
+            env.render()
+
 
         while(not done):
             action = env.get_action(training)
-
             obs, reward, done, truncated, info = env.step(action)
             
             if training:
                 for k in range(NUM_PLAYERS):
                     # if change of score in current player: learn (action,reward)
-                    dif = env.new_obs[k][OWN_SCORE] - env.old_obs[k][OWN_SCORE]
-                    rew = env.new_obs[k][OWN_SCORE]
-                    rew = dif
-                    rew = 0 # sparse rewards
-                    if dif == 0:
-                        dif = env.new_obs[k][TURN_SCORE] - env.old_obs[k][TURN_SCORE]
-                        rew = env.new_obs[k][TURN_SCORE] + env.old_obs[k][OWN_SCORE]
-                        rew = dif
-                        rew = 0 # sparse rewards
+                    old_score = env.old_obs[k][OWN_SCORE]
+                    new_score = env.new_obs[k][OWN_SCORE]
+                    dif_score = env.new_obs[k][OWN_SCORE] - env.old_obs[k][OWN_SCORE]
+
+                    # rew = dif
+                    rew = 0 # sparse rewards   only on win/lose 
                     if done:
-                        if env.winner == k:
-                            dif += GOAL
-                            rew += GOAL
-                            rew = GOAL # sparse rewards
-                        else:
-                            dif -= GOAL
-                            rew -= GOAL
-                            rew = 0 # sparse rewards
-                    if dif != 0:
+                        if env.winner==k:    
+                            rew= 1.0      #reward normalized to 1
+                        else:   
+                            rew= -1.0      #penalty 
+
+                    # if dif == 0:
+                    #     dif = env.new_obs[k][TURN_SCORE] - env.old_obs[k][TURN_SCORE]
+                    #     rew = env.new_obs[k][TURN_SCORE] + env.old_obs[k][OWN_SCORE]
+                    #     rew = dif
+                    #     rew = 0 # sparse rewards
+                    # if done:
+                    #     if env.winner == k:
+                    #         dif += GOAL
+                    #         rew += GOAL
+                    #         rew = GOAL # sparse rewards
+                    #     else:
+                    #         dif -= GOAL
+                    #         rew -= GOAL
+                    #         rew = 0 # sparse rewards 
+
+
+                    if rew != 0:
                         # print(k,'difs',env.new_obs[k][OWN_SCORE],env.old_obs[k][OWN_SCORE],dif)
-                        env.agents[k].learn(env.old_obs[k],
-                                            env.last_actions[k],
-                                            env.new_obs[k],
-                                            rew, # dif,
-                                            done,
-                                            truncated,
-                                            info,
-                                            k # idx for logging purposes
-                                           )
-            env.render()
+                        env.agents[k].learn(
+                            env.old_obs[k],
+                            env.last_actions[k],
+                            env.new_obs[k],
+                            rew, # dif,
+                            done,
+                            truncated,
+                            info,
+                            k # idx for logging purposes
+                            )
+                        
+            if render_mode: 
+                time.sleep(3)
+                env.render()
+
 
             # CHECK TERMINATION OF GAME    
             if done:
                 if env.winner < 0:
                     raise ValueError(f'Invalid winner {env.winner}')
-                num_games1 += env.winner
+                
+                # num_games1 += env.winner
+                wins[env.winner] += 1
+
                 if verbose:
+                    print(f"Game {num_games+1}: Winner= Player {env.winner+1} ")
                     print(env.last_game_info)
                     print(env.players)
+
                 env.render()
                 if render_mode: time.sleep(3)
                 break
 
         num_games += 1
-        ratio1 = num_games1/num_games*100
+        win_ratio = num_games1/num_games*100      #was ratio1
+
         if training:
-            writer.add_scalar("Games/ratio(0)", 100-ratio1, run_game)
+            writer.add_scalar("Games/ratio(0)", win_ratio, run_game)
+            writer.add_scalar("Games/ratio(1)", 100 - win_ratio, run_game)
             run_game += 1
-        isRunning = num_games < max_games
+
+        # isRunning = num_games < max_games
       
     return num_games,num_games1
 

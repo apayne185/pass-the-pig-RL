@@ -20,7 +20,7 @@ import json
 # date_string = f'{datetime.now():%Y-%m-%d %H:%M:%S%z}' # returns '2024-01-15 23:58:18'
 import torch
 from torch.utils.tensorboard import SummaryWriter
-
+import pygame as pg
 
 
 
@@ -32,6 +32,7 @@ from torch.utils.tensorboard import SummaryWriter
 NUM_PLAYERS = 2 # WARNING!!! ONLY PREPARED FOR 2 PLAYERS
 RULES_B = True  # game ends as soon as any player reaches GOAL
 WITH_HOG_CALLS = True # False
+RENDER_DELAY = 0.2  #secs per render updates 
 
 AVG_EP = 1000
 
@@ -92,10 +93,10 @@ IMG_H  = 410
 H_INFO = 120
 FPS    = 20
 VERBOSE = False
-RENDER_MODE = 'interactive' # None # 'human' 'interactive'
+RENDER_MODE = 'None'       # None # 'human' 'interactive'
 if RENDER_MODE == 'interactive':
     assert WITH_HOG_CALLS, "Interactive Mode is setup for Hog Calls options"
-    import pygame as pg
+  
 
 
 
@@ -632,6 +633,9 @@ class PassThePigs_2Players_Env(gym.Env):
           self.new_obs = copy.deepcopy(players)
           self.last_actions[player] = action
 
+          if not done and action != ROLL:
+             self.player = (self.player + 1) % NUM_PLAYERS
+
           return self._get_obs(), reward, done, False, {'reason':reason,'winner':self.winner}
     
     def render(self):
@@ -700,7 +704,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
         done = False 
 
         if render_mode: 
-            time.sleep(3)
+            time.sleep(RENDER_DELAY)
             env.render()
 
 
@@ -753,7 +757,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
                             )
                         
             if render_mode: 
-                time.sleep(3)
+                time.sleep(RENDER_DELAY)
                 env.render()
 
 
@@ -775,7 +779,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
                 break
 
         num_games += 1
-        win_ratio = num_games1/num_games*100      #was ratio1
+        win_ratio = num_games/num_games*100      #was ratio1
 
         if training:
             writer.add_scalar("Games/ratio(0)", win_ratio, run_game)
@@ -784,7 +788,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
 
         # isRunning = num_games < max_games
       
-    return num_games,num_games1
+    return num_games, wins[1]        #total games, player 2 wins
 
 
 
@@ -824,7 +828,7 @@ if __name__ == "__main__":
             # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=75)
             # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=100) # 100% (always) roll...
 
-            num_games,num_games1 = play_games(env, GAMES_PER_EPOCH,training=TRAINING)
+            num_games, num_games1 = play_games(env, GAMES_PER_EPOCH,training=TRAINING)
 
             ratio1 = num_games1/num_games*100
             ellapsed = time.time() - start # This gives the execution time in seconds.

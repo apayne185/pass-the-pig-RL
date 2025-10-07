@@ -122,7 +122,7 @@ def draw_text(screen,font,text,color,pos,center=False,antialias=False):
 # +-------------------------------------+
 
 
-TRAINING = False # True
+TRAINING = True # True
 if TRAINING:
     # SummaryWriter(log_dir=None, comment='', purge_step=None, max_queue=10, flush_secs=120, filename_suffix='')
     writer = SummaryWriter()
@@ -532,6 +532,7 @@ class PassThePigs_2Players_Env(gym.Env):
           if action in [PASS,HOG_CALL_1,HOG_CALL_2]:
                       reward = 0
                       players[player][OWN_SCORE] += players[player][TURN_SCORE]
+                      print(f"[DEBUG] Player {player} scores: own={players[player][OWN_SCORE]}, turn={players[player][TURN_SCORE]}")
                       players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
                       players[player][TURN_SCORE] = 0 # reset
                       if WITH_HOG_CALLS:
@@ -636,6 +637,9 @@ class PassThePigs_2Players_Env(gym.Env):
           if not done and action != ROLL:
              self.player = (self.player + 1) % NUM_PLAYERS
 
+          if done: 
+              print("DEBUG DONE!")
+
           return self._get_obs(), reward, done, False, {'reason':reason,'winner':self.winner}
     
     def render(self):
@@ -727,22 +731,6 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
                         else:   
                             rew= -1.0      #penalty 
 
-                    # if dif == 0:
-                    #     dif = env.new_obs[k][TURN_SCORE] - env.old_obs[k][TURN_SCORE]
-                    #     rew = env.new_obs[k][TURN_SCORE] + env.old_obs[k][OWN_SCORE]
-                    #     rew = dif
-                    #     rew = 0 # sparse rewards
-                    # if done:
-                    #     if env.winner == k:
-                    #         dif += GOAL
-                    #         rew += GOAL
-                    #         rew = GOAL # sparse rewards
-                    #     else:
-                    #         dif -= GOAL
-                    #         rew -= GOAL
-                    #         rew = 0 # sparse rewards 
-
-
                     if rew != 0:
                         # print(k,'difs',env.new_obs[k][OWN_SCORE],env.old_obs[k][OWN_SCORE],dif)
                         env.agents[k].learn(
@@ -780,11 +768,13 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
 
         num_games += 1
         win_ratio = num_games/num_games*100      #was ratio1
+        print(f"NUM GAMES: {num_games}\n")
 
         if training:
             writer.add_scalar("Games/ratio(0)", win_ratio, run_game)
             writer.add_scalar("Games/ratio(1)", 100 - win_ratio, run_game)
             run_game += 1
+            print(f"TRAINING: RUN GAME: {run_game}\n")
 
         # isRunning = num_games < max_games
       

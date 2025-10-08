@@ -32,7 +32,7 @@ import pygame as pg
 NUM_PLAYERS = 2 # WARNING!!! ONLY PREPARED FOR 2 PLAYERS
 RULES_B = True  # game ends as soon as any player reaches GOAL
 WITH_HOG_CALLS = True # False
-RENDER_DELAY = 0.2  #secs per render updates 
+RENDER_DELAY = 0.01  #secs per render updates 
 
 AVG_EP = 1000
 
@@ -763,7 +763,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
                     print(env.players)
 
                 env.render()
-                if render_mode: time.sleep(3)
+                if render_mode: time.sleep(RENDER_DELAY)
                 break
 
         num_games += 1
@@ -803,17 +803,17 @@ if __name__ == "__main__":
     setup = 'Baseline_vs_Roller'
     setup = 'Baseline_vs_Baseline'
     
-    # env.agents[0] = PassThePigsAgent(mode='QTable')
+    env.agents[0] = PassThePigsAgent(mode='QTable')
 
     run_epoch = 0
-    GAMES_PER_EPOCH = 10_000
+    GAMES_PER_EPOCH = 15
     start = time.time()
 
     # execution of games organized in a sort of matrix disposition for easier presentation/analysis of results
     for row in range(20):
         for col in range(20):
             # GAME START...
-            env.agents[0] = PassThePigsAgent(mode='Baseline',threshold=row*5)
+            # env.agents[0] = PassThePigsAgent(mode='Baseline',threshold=row*5)
             env.agents[1] = PassThePigsAgent(mode='Baseline',threshold=col*5)
             # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=75)
             # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=100) # 100% (always) roll...

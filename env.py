@@ -21,7 +21,7 @@ import json
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import pygame as pg
-
+from collections import defaultdict 
 
 
 
@@ -30,11 +30,11 @@ import pygame as pg
 # |        GAME ENVIRONMENT SETUP       |
 # +-------------------------------------+
 NUM_PLAYERS = 2 # WARNING!!! ONLY PREPARED FOR 2 PLAYERS
-RULES_B = True  # game ends as soon as any player reaches GOAL
+RULES_B = True  # game ends as soon as any player reaches GOAL (100 pts)
 WITH_HOG_CALLS = True # False
 RENDER_DELAY = 0.01  #secs per render updates 
+AVG_EP = 1_000 
 
-AVG_EP = 1000
 
 if WITH_HOG_CALLS:
     ACTIONS  = ['ROLL','PASS','HOG_CALL_1','HOG_CALL_2']
@@ -47,7 +47,7 @@ PASS     = 1
 HOG_CALL_1 = 2
 HOG_CALL_2 = 3
 
-HOG_CALL_SCORE_1 = 5 # score the hog_call is betting on
+HOG_CALL_SCORE_1 = 5       # score the hog_call is betting on, one of the more common rolls
 HOG_CALL_SCORE_2 = 10
 
 OUTS      = ['PIG_OUT','PIGGYBACK','OINKER']
@@ -63,7 +63,8 @@ HOG_CALL   = 3
 
 GOAL = 100 # Points
 BUCKET = 5 # Points (for grouping scores into buckets)
-MAX_BUCKETS = GOAL//BUCKET
+# MAX_BUCKETS = GOAL//BUCKET
+MAX_BUCKETS = 10    #if we have hog calls, table becomes 5d and 20^5 = 3.2 million entries
 
 # In[]: SYSTEM DYNAMICS
 #----------------------------------------------------------
@@ -135,7 +136,7 @@ if TRAINING:
         writer.add_scalar("Loss/train", loss, epoch)
     writer.close()
     """
-    AVG_EP = 1_000 # number of episodes for averaged rewards reporting/logging
+    # AVG_EP = 1_000 # number of episodes for averaged rewards reporting/logging
 
 
 
@@ -204,9 +205,13 @@ def load_QT_model(agent,model_name):
     agent.QTable = np.load(model_name+'.npy')
 
 
+
+
+
+
 # modes: Roller (prob=p%), Baseline, QTable        
 class PassThePigsAgent():
-    def __init__(self,mode='Baseline',threshold=25):
+    def __init__(self,mode,threshold=25):    #used to be mode='Baseline'
         self.mode = mode
         if mode == 'QTable':
             # 20 buckets of scores from 0..GOAL points
@@ -227,7 +232,6 @@ class PassThePigsAgent():
         
     def predict(self,obs,training=False):
         if self.mode == 'QTable':
-            # do something...
             if WITH_HOG_CALLS:
                 obs   = np.concatenate([np.minimum(obs[:-1]//BUCKET,MAX_BUCKETS-1),obs[-1:]]) # bucketing         
             else:
@@ -235,6 +239,7 @@ class PassThePigsAgent():
             state = tuple(obs)
             # print(state)
             action = epsilon_greedy_policy(self.QTable, state, self.epsilon if training else 0) # greedy policy when epsilon=0
+        
         elif self.mode == 'Baseline':
             # basic heuristic rule...
             action = ROLL # roll
@@ -245,17 +250,21 @@ class PassThePigsAgent():
             action = np.random.choice([ROLL,PASS], 1, p=[prob_roll,(1-prob_roll)])[0]
         return action
     
+    
     def learn(self,old_obs,action,new_obs,reward,terminated,truncated,info,idx):
         if self.mode == 'QTable':
             # print('\rlearning',action,reward,' '*20,end='')
             old_obs = np.array(old_obs)
             new_obs = np.array(new_obs)
+
             if WITH_HOG_CALLS:
                 old_obs = np.concatenate([np.minimum(old_obs[:-1]//BUCKET,MAX_BUCKETS-1),old_obs[-1:]]) # bucketing           
                 new_obs = np.concatenate([np.minimum(new_obs[:-1]//BUCKET,MAX_BUCKETS-1),new_obs[-1:]])            
+           
             else:
                 old_obs = np.minimum(old_obs//BUCKET,MAX_BUCKETS-1) # bucketing           
-                new_obs = np.minimum(new_obs//BUCKET,MAX_BUCKETS-1)            
+                new_obs = np.minimum(new_obs//BUCKET,MAX_BUCKETS-1)    
+
             old_state=tuple(old_obs)
             new_state=tuple(new_obs)
             #--------------------------------------------------------------------------------
@@ -276,6 +285,7 @@ class PassThePigsAgent():
                 self.epsilon = epsilon_schedule(self.episode)
                 self.learning_rate = learning_schedule(self.episode)
                 self.episode_reward = 0
+
 
             """
             #Q Function Update
@@ -311,6 +321,7 @@ def train(n_training_episodes, min_epsilon, max_epsilon, decay_rate, env, max_st
       state = new_state
   return Qtable
 '''    
+
 
 
 
@@ -361,13 +372,16 @@ class PassThePigs_2Players_Env(gym.Env):
                  
         self.observation_space = spaces.Box(low=0, high=100, shape=(N_PLAYERS+1+1,), dtype=int)
         """
+
         # own score, opponent score, turn score, type_of_hog_call_placed
         if WITH_HOG_CALLS: # len(ACTIONS) > 2: # option for Hog Calls
             low  = np.array([0,0,0,0])
             high = np.array([GOAL,GOAL,GOAL,len(ACTIONS)-2]) # hog_call: 0 (None|Pass), 1 (type 1), 2 (type 2)
+        
         else:
             low  = np.array([0,0,0])
             high = np.array([GOAL,GOAL,GOAL])
+
 
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=int)
         print('render_mode',render_mode)        
@@ -385,7 +399,6 @@ class PassThePigs_2Players_Env(gym.Env):
             pg.font.init() # you have to call this at the start, if you want to use this module.
             # print(pg.font.get_fonts())
             self.font_comic = pg.font.SysFont('Comic Sans MS', 30) # This creates a new object on which you can call the render method.
-            # self.font_default = pg.font.SysFont(pg.font.get_default_font(), 20)
             self.font_default = pg.font.SysFont('Consolas', 20)
 
             fdir = 'pass_the_pigs/single_images/'
@@ -406,7 +419,8 @@ class PassThePigs_2Players_Env(gym.Env):
             self.count = 0
 
             # To prevent repeated key events in Pygame, you can use pygame.key.set_repeat() with a delay of 0.
-            pg.key.set_repeat(0)
+            pg.key.set_repeat(0) 
+
 
     def _roll(self):
         idx = np.random.choice(range(len(THROWS)), 1, p=[t[1] for t in THROWS])
@@ -423,9 +437,10 @@ class PassThePigs_2Players_Env(gym.Env):
             self.sample.append(s1)
 
 
-    def _get_action(self): # interactive mode only...
+    #INTERACTIVE MODE ONLY!!!!
+    def _get_action(self): 
           if not self.render_mode == "interactive": return
-          # GET ACTION (interactive mode)
+
           action = NONE
           for event in pg.event.get():
               if event.type == pg.QUIT:
@@ -442,14 +457,17 @@ class PassThePigs_2Players_Env(gym.Env):
                       action = ROLL
                       play_sound = pg.mixer.Sound('pass_the_pigs/game/beep-sound-8333.mp3')
                       play_sound.play() # time.sleep(5); play_sound.stop() # let the sound play for 5 seconds.
+                  
                   elif event.key == pg.K_p: # Pass
                       pg.event.clear()
                       self.count += 1; print(self.count,'P')
                       action = PASS
+
                   elif event.key == pg.K_h or event.key == pg.K_1: # Pass and Hog Call (1)
                       pg.event.clear()
                       self.count += 1; print(self.count,'H_1')
                       action = HOG_CALL_1
+
                   elif event.key == pg.K_2: # Pass and Hog Call (2)
                       pg.event.clear()
                       self.count += 1; print(self.count,'H_2')
@@ -478,23 +496,21 @@ class PassThePigs_2Players_Env(gym.Env):
     def _get_obs(self):
         return np.array(self.players[self.player],dtype=int) # observation ONLY for current player
 
-    def reset(self, *, seed: Optional[int] = None, 
-              options: Optional[Dict] = None
-    ):
+    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
         # RESET...
         self.throw = None
         self.player = 0
         #---------------------------------------------------------------------------
         # STATE OF THE GAME
         # player data: own total score, opp total score, turn score, hog call placed
-        """
+       
         if WITH_HOG_CALLS: # len(ACTIONS) > 2: # option for Hog Calls
             self.players = [[0,0,0,0],
                             [0,0,0,0]]
         else:
             self.players = [[0,0,0],
                             [0,0,0]]
-        """
+
         # WARNING!!!
         # The following initialization DOES NOT WORK (the inner lists would point to the SAME object)
         # self.players = [[0]*self.observation_space.shape[0]]*NUM_PLAYERS
@@ -513,6 +529,7 @@ class PassThePigs_2Players_Env(gym.Env):
         winners = 'ABX'
         self.last_game_info = f"Winner {winners[self.winner]} ({self.players[0][OWN_SCORE]} vs {self.players[1][OWN_SCORE]}) {reason}"
     
+
     def step(self, action):
           player  = self.player
           players = self.players
@@ -529,16 +546,19 @@ class PassThePigs_2Players_Env(gym.Env):
 
           # STEP
           opponent = (player + 1) % NUM_PLAYERS # ONLY WORKS FOR TWO PLAYERS
-          if action in [PASS,HOG_CALL_1,HOG_CALL_2]:
+          if action in [PASS, HOG_CALL_1, HOG_CALL_2]:
                       reward = 0
                       players[player][OWN_SCORE] += players[player][TURN_SCORE]
                       print(f"[DEBUG] Player {player} scores: own={players[player][OWN_SCORE]}, turn={players[player][TURN_SCORE]}")
                       players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
                       players[player][TURN_SCORE] = 0 # reset
+
                       if WITH_HOG_CALLS:
-                            players[player][HOG_CALL]   = 0 # clear hog call
-                            players[opponent][HOG_CALL] = action - 1
-                      self.player = opponent
+                            players[player][HOG_CALL]   = 0  # clear hog call, only one per turn  
+                            players[opponent][HOG_CALL] = action - 1   #hog call is stored on opponents state because they now need to roll
+                      
+                      self.player = opponent   #takes turns
+
           elif action == ROLL:
                       self._roll()
                       score = self.throw[2]
@@ -565,18 +585,23 @@ class PassThePigs_2Players_Env(gym.Env):
 
                           players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
                           players[player][TURN_SCORE] = 0 # reset
+                          
                           if WITH_HOG_CALLS:
                                 players[player][HOG_CALL]   = 0 # clear hog call
                                 players[opponent][HOG_CALL] = 0 # no hog call made
-                          self.player = opponent
+                          
+                          self.player = opponent       #takes turns
+
                       else: # good roll...
                         if WITH_HOG_CALLS and players[player][HOG_CALL] > 0: # opponent had made a "hog call"
                             hog_call = players[player][HOG_CALL]
                             if (hog_call==1 and score==HOG_CALL_SCORE_1) or (hog_call==2 and score==HOG_CALL_SCORE_2): # correct hog_call
                                 reward = - min(2*score, players[player][OWN_SCORE])
                                 players[player][OWN_SCORE] -= 2*score 
+                                
                                 if players[player][OWN_SCORE] < 0:
                                     players[player][OWN_SCORE] = 0
+
                                 players[opponent][OWN_SCORE] += 2*score
                                 players[player][OPP_SCORE]   = players[opponent][OWN_SCORE]
                                 players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
@@ -584,6 +609,9 @@ class PassThePigs_2Players_Env(gym.Env):
                                 players[player][HOG_CALL]   = 0 # clear hog call
                                 players[opponent][HOG_CALL] = 0 # no hog call made
                                 self.player = opponent
+
+                                reward += 1.0   #intermediate (immediate) rewards for correct hog call
+                            
                             else: # incorrect hog_call
                                 reward = 2*score
 
@@ -601,23 +629,9 @@ class PassThePigs_2Players_Env(gym.Env):
 
                                 players[player][HOG_CALL]   = 0 # clear hog call
                                 players[opponent][HOG_CALL] = 0 # no hog call made
-                                """
-                                # Alternative (old) interpretation...
-                                # Automatic consolidation of the TURN_SCORE into OWN_SCORE
-                                players[player][OWN_SCORE] += 2*score
-                                players[opponent][OWN_SCORE] -= 2*score
-                                if players[opponent][OWN_SCORE] < 0:
-                                    players[opponent][OWN_SCORE] = 0
-                                players[player][OPP_SCORE] = players[opponent][OWN_SCORE]
-                                players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
-                                players[player][TURN_SCORE] = 0 # reset
-                                players[player][HOG_CALL]   = 0 # clear hog call
-                                players[opponent][HOG_CALL] = 0 # no hog call made
-                                if players[player][OWN_SCORE] > GOAL:
-                                    #------------------------------
-                                    done = True; reason = 'Goal reached (hog call)'; self.winner = player; self.done_snapshot(reason)
-                                    #------------------------------
-                                """  
+
+                                reward -= 1.0     #intermediate reward
+
                         else: # good roll, no hog_call
                             reward = score
                             # outcome = score
@@ -629,6 +643,7 @@ class PassThePigs_2Players_Env(gym.Env):
                                 done = True; reason = 'Goal reached'; self.winner = player; self.done_snapshot(reason)
                                 #------------------------------
           
+
           # RECORD FOR TRAINING PURPOSES
           # copy.deepcopy(x)): A deep copy creates a completely independent copy of the original list, including all nested elements.
           self.new_obs = copy.deepcopy(players)
@@ -638,7 +653,7 @@ class PassThePigs_2Players_Env(gym.Env):
              self.player = (self.player + 1) % NUM_PLAYERS
 
           if done: 
-              print("DEBUG DONE!")
+              print("DONE!")
 
           return self._get_obs(), reward, done, False, {'reason':reason,'winner':self.winner}
     

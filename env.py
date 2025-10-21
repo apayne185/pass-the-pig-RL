@@ -346,10 +346,11 @@ class PassThePigs_2Players_Env(gym.Env):
         "FPS": 20,  # pygame
     }
 
-    def __init__(self, render_mode: Optional[str] = None):
+    def __init__(self, render_mode: Optional[str] = None, simultaneous_mode: bool=False):     #automatically not cournot mode
         super(PassThePigs_2Players_Env, self).__init__()
         self.render_mode = render_mode
         self.last_game_info = ""
+        self.simultaneous_mode = simultaneous_mode    #COURNOT MODE = TRUE
 
         self.players = []
         self.agents  = [None, None] # for 2 players

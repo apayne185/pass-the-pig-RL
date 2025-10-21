@@ -79,7 +79,7 @@ out_prob = [0.001, 0.0386, 0.1922, 0.1922, 0.31, 0.1168, 0.0846, 0.0525, 0.0056,
 """
 # just for debugging purposes
 # for k in range(n := len(THROWS)): THROWS[k][1] = 1/n # equi-probable...
-print(THROWS)  
+# print(THROWS)  
 
 
 
@@ -130,12 +130,12 @@ if TRAINING:
     # Writer will output to ./runs/ directory by default.
     # Default is runs/CURRENT_DATETIME_HOSTNAME
     # To log a scalar value, use add_scalar(tag, scalar_value, global_step=None, walltime=None).
-    """
-    for epoch in range(10_000):
-        loss = epoch % 1_000
-        writer.add_scalar("Loss/train", loss, epoch)
-    writer.close()
-    """
+
+    # for epoch in range(10_000):
+    #     loss = epoch % 1_000
+    #     writer.add_scalar("Loss/train", loss, epoch)
+    # writer.close()
+
     # AVG_EP = 1_000 # number of episodes for averaged rewards reporting/logging
 
 
@@ -191,6 +191,7 @@ def save_QT_model(agent,model_name):
     with open('output/'+model_name+'.json', 'w') as f:
         json.dump(config, f, indent=4)
     np.save('output/'+model_name+'.npy', agent.QTable)
+        
         
 def load_QT_model(agent,model_name):
     # Read config data from a file
@@ -550,7 +551,7 @@ class PassThePigs_2Players_Env(gym.Env):
           if action in [PASS, HOG_CALL_1, HOG_CALL_2]:
                       reward = 0
                       players[player][OWN_SCORE] += players[player][TURN_SCORE]
-                      print(f"[DEBUG] Player {player} scores: own={players[player][OWN_SCORE]}, turn={players[player][TURN_SCORE]}")
+                    #   print(f"[DEBUG] Player {player} scores: own={players[player][OWN_SCORE]}, turn={players[player][TURN_SCORE]}")
                       players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
                       players[player][TURN_SCORE] = 0 # reset
 
@@ -822,12 +823,14 @@ if __name__ == "__main__":
     env.agents[0] = PassThePigsAgent(mode='QTable')
 
     run_epoch = 0
-    GAMES_PER_EPOCH = 15
+    GAMES_PER_EPOCH = 10      #used to be 15
+    rows= cols = 15           #used to be 20     (so 20x20x15=6000), simplified because this took 10+ hrs to run
     start = time.time()
 
+
     # execution of games organized in a sort of matrix disposition for easier presentation/analysis of results
-    for row in range(20):
-        for col in range(20):
+    for row in range(rows):
+        for col in range(cols):
             # GAME START...
             # env.agents[0] = PassThePigsAgent(mode='Baseline',threshold=row*5)
             env.agents[1] = PassThePigsAgent(mode='Baseline',threshold=col*5)

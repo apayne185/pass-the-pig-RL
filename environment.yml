@@ -1,4 +1,4 @@
-name: ptp
+name: ptp-env
 channels:
   - defaults
   - conda-forge
@@ -10,5 +10,5 @@ dependencies:
   - tensorboard
   - pip
   - pip:
-      - gym==0.26.2
+      - gymnasium==0.26.2
       - gym-notices

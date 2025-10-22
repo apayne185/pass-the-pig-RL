@@ -712,9 +712,8 @@ class PassThePigs_2Players_Env(gym.Env):
 # In[]: PLAY GAMES
 run_game = 0
 
-def play_games(env, max_games=10_000,verbose=False,training=False):
+def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=None):
     global run_game
-    # isRunning = True
     num_games = 0
     # num_games1 = 0 # games won by player B/opposition
     wins = [0,0]     #wins for player 1 [0], wins for player 2 [1]
@@ -735,12 +734,11 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
             
             if training:
                 for k in range(NUM_PLAYERS):
-                    # if change of score in current player: learn (action,reward)
-                    old_score = env.old_obs[k][OWN_SCORE]
-                    new_score = env.new_obs[k][OWN_SCORE]
-                    dif_score = env.new_obs[k][OWN_SCORE] - env.old_obs[k][OWN_SCORE]
+                    # # if change of score in current player: learn (action,reward)
+                    # old_score = env.old_obs[k][OWN_SCORE]
+                    # new_score = env.new_obs[k][OWN_SCORE]
+                    # dif_score = env.new_obs[k][OWN_SCORE] - env.old_obs[k][OWN_SCORE]
 
-                    # rew = dif
                     rew = 0 # sparse rewards   only on win/lose 
                     if done:
                         if env.winner==k:    
@@ -784,22 +782,25 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
                 break
 
         num_games += 1
-        win_ratio = num_games/num_games*100      #was ratio1
+        # win_ratio = num_games/num_games*100      #was ratio1
+        win_rate_p1 = wins[0] / num_games      #player 1
+        win_rate_p2 = wins[1] / num_games      #player 2
+
         print(f"NUM GAMES: {num_games}\n")
 
         if training:
-            writer.add_scalar("Games/ratio(0)", win_ratio, run_game)
-            writer.add_scalar("Games/ratio(1)", 100 - win_ratio, run_game)
+            tag_prefix = f"Curriculum/{stage_name}" if stage_name else "Games"
+
+            # writer.add_scalar("Games/ratio(0)", win_ratio, run_game)
+            # writer.add_scalar("Games/ratio(1)", 100 - win_ratio, run_game)
+            writer.add_scalar(f"{tag_prefix}/WinRate_Player1", win_rate_p1, run_game)
+            writer.add_scalar(f"{tag_prefix}/WinRate_Player2", win_rate_p2, run_game)
             run_game += 1
             print(f"TRAINING: RUN GAME: {run_game}\n")
 
         # isRunning = num_games < max_games
       
     return num_games, wins[1]        #total games, player 2 wins
-
-
-
-
 
 
 
@@ -814,52 +815,93 @@ if __name__ == "__main__":
     # check_env(env) # WARNING!!! Fails mysteriously...
 
     # BENCHMARK COMPETITION BETWEEN MODELS
-    mat = np.zeros((20,20))
-
-    setup = 'QTable_epochs_vs_Roller'
-    setup = 'Baseline_vs_Roller'
-    setup = 'Baseline_vs_Baseline'
+    # mat = np.zeros((20,20))
+    # setup = 'QTable_epochs_vs_Roller'
+    # setup = 'Baseline_vs_Roller'
+    # setup = 'Baseline_vs_Baseline'
     
-    env.agents[0] = PassThePigsAgent(mode='QTable')
+    # rows= cols = 15           #used to be 20     (so 20x20x15=6000), simplified because this took 10+ hrs to run
+    # start = time.time()
+    # OLD VERSION: execution of games organized in a sort of matrix disposition for easier presentation/analysis of results
+    # for row in range(rows):
+    #     for col in range(cols):
+    #         # GAME START...
+    #         env.agents[0] = PassThePigsAgent(mode='Baseline',threshold=row*5)
+    #         env.agents[1] = PassThePigsAgent(mode='Baseline',threshold=col*5)
+    #         # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=75)
+    #         # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=100) # 100% (always) roll...
+
+    #         num_games, num_games1 = play_games(env, GAMES_PER_EPOCH,training=TRAINING)
+
+    #         ratio1 = num_games1/num_games*100
+    #         ellapsed = time.time() - start # This gives the execution time in seconds.
+    #         print(f'\r({row},{col}) {num_games} RATIO: {ratio1:.2f}% {time.strftime("%H:%M:%S", time.gmtime(ellapsed))}'+' '*20, end="")
+    #         if TRAINING:
+    #             writer.add_scalar("ratio(0)", 100-ratio1, run_epoch)
+    #             run_epoch += 1
+    #         mat[row,col] = ratio1
+    
 
     run_epoch = 0
-    GAMES_PER_EPOCH = 10      #used to be 15
-    rows= cols = 15           #used to be 20     (so 20x20x15=6000), simplified because this took 10+ hrs to run
-    start = time.time()
+    GAMES_PER_EPOCH = 500      #used to be 15 (when in nested loop)
+    setup = ["Train_vs_roller", "Train_vs_baseline", "Self_play"]      #c1, c2, c3
+
+    env.agents[0] = PassThePigsAgent(mode='QTable')
+
+    for s in range(3):   #stages of curriculum training
+        start= time.time()
+        print(f"\n{setup[s]}")
+
+        if s == 0:
+            env.agents[1] = PassThePigsAgent(mode='Roller',threshold=100)     #only for 1st stage of curriculum learning
+
+        elif s ==1: 
+            if os.path.exists(f"output/my_qtable_2Players_c1_{model_name}.npy"):
+                env.agents[0].QTable = np.load(f"output/my_qtable_2Players_c1_{model_name}.npy")
+            env.agents[1] = PassThePigsAgent(mode='Baseline',threshold=100)
+        elif s ==2: 
+            if os.path.exists(f"output/my_qtable_2Players_c2_{model_name}.npy"):
+                env.agents[0].QTable = np.load(f"output/my_qtable_2Players_c2_{model_name}.npy")
+            opp = PassThePigsAgent(mode='QTable', threshold=100)
+            opp.QTable = env.agents[0].QTable.copy()      #cloning the trained qtable 
+            env.agents[1] = opp
+
+        else: 
+            print("opponent initiation error, out of bounds") 
 
 
-    # execution of games organized in a sort of matrix disposition for easier presentation/analysis of results
-    for row in range(rows):
-        for col in range(cols):
-            # GAME START...
-            # env.agents[0] = PassThePigsAgent(mode='Baseline',threshold=row*5)
-            env.agents[1] = PassThePigsAgent(mode='Baseline',threshold=col*5)
-            # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=75)
-            # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=100) # 100% (always) roll...
+        stage_name = f"Stage_{s+1}_{setup[s]}"
+        num_games, num_games1 = play_games(env, GAMES_PER_EPOCH, training=TRAINING, stage_name=stage_name)
 
-            num_games, num_games1 = play_games(env, GAMES_PER_EPOCH,training=TRAINING)
+        if TRAINING:
+            writer.add_scalar(f"Curriculum/{stage_name}_WinRate_Player2", num_games1/ num_games, run_epoch)
+            writer.add_scalar(f"Curriculum/{stage_name}_Time", time.time() - start, run_epoch)
 
-            ratio1 = num_games1/num_games*100
-            ellapsed = time.time() - start # This gives the execution time in seconds.
-            print(f'\r({row},{col}) {num_games} RATIO: {ratio1:.2f}% {time.strftime("%H:%M:%S", time.gmtime(ellapsed))}'+' '*20, end="")
-            if TRAINING:
-                writer.add_scalar("ratio(0)", 100-ratio1, run_epoch)
-                run_epoch += 1
+            run_epoch += 1
 
-            mat[row,col] = ratio1
+        print(f"Stage {s+1} done: {num_games} games done in {time.time()-start}s")
+        np.save(f"output/my_qtable_2Players_c{s+1}_{model_name}.npy", env.agents[0].QTable)
+        print(f"Saved: output/my_qtable_2Players_c{s+1}_{model_name}.npy ({env.agents[0].QTable.shape})")
 
-    np.save(f'output/my_mat_2Players_{setup}.npy', mat)
-    np.savetxt(f'output/my_mat_2Players_{setup}.csv', mat, delimiter=',')
-    rows,cols,size = mat.shape[0],mat.shape[1],mat.size
-    print(rows,cols,size,mat.shape,mat.size)
-    # my_list: x,y,z
-    my_list = np.vstack([np.arange(size)%cols,np.arange(size)//rows,mat.flatten()]).T
-    np.save(f'output/my_list_2Players_{setup}.npy', my_list)
-    np.savetxt(f'output/my_list_2Players_{setup}.csv', my_list, delimiter=',')
-
-    if env.agents[0].mode == "QTable":
-        np.save(f'output/my_qtable_2Players_{model_name}.npy', env.agents[0].QTable)
         save_QT_model(env.agents[0],model_name)
+
+
+    print("\nCurriculum training done")
+
+
+# 
+    # np.save(f'output/my_mat_2Players_{setup}.npy', mat)
+    # np.savetxt(f'output/my_mat_2Players_{setup}.csv', mat, delimiter=',')
+    # rows,cols,size = mat.shape[0],mat.shape[1],mat.size
+    # print(rows,cols,size,mat.shape,mat.size)
+    # # my_list: x,y,z
+    # my_list = np.vstack([np.arange(size)%cols,np.arange(size)//rows,mat.flatten()]).T
+    # np.save(f'output/my_list_2Players_{setup}.npy', my_list)
+    # np.savetxt(f'output/my_list_2Players_{setup}.csv', my_list, delimiter=',')
+
+    # if env.agents[0].mode == "QTable":
+    #     np.save(f'output/my_qtable_2Players_{model_name}.npy', env.agents[0].QTable)
+    #     save_QT_model(env.agents[0],model_name)
 
     env.close()
     if TRAINING:

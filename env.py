@@ -21,7 +21,7 @@ import json
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import pygame as pg
-from collections import defaultdict 
+from collections import defaultdict
 
 
 
@@ -32,8 +32,8 @@ from collections import defaultdict
 NUM_PLAYERS = 2 # WARNING!!! ONLY PREPARED FOR 2 PLAYERS
 RULES_B = True  # game ends as soon as any player reaches GOAL (100 pts)
 WITH_HOG_CALLS = True # False
-RENDER_DELAY = 0.01  #secs per render updates 
-AVG_EP = 1_000 
+RENDER_DELAY = 0.01  #secs per render updates
+AVG_EP = 1_000
 
 
 if WITH_HOG_CALLS:
@@ -79,7 +79,7 @@ out_prob = [0.001, 0.0386, 0.1922, 0.1922, 0.31, 0.1168, 0.0846, 0.0525, 0.0056,
 """
 # just for debugging purposes
 # for k in range(n := len(THROWS)): THROWS[k][1] = 1/n # equi-probable...
-# print(THROWS)  
+# print(THROWS)
 
 
 
@@ -97,7 +97,7 @@ VERBOSE = False
 RENDER_MODE = 'None'       # None # 'human' 'interactive'
 if RENDER_MODE == 'interactive':
     assert WITH_HOG_CALLS, "Interactive Mode is setup for Hog Calls options"
-  
+
 
 
 
@@ -151,9 +151,9 @@ model_name  = f'QT_{STAGE}'
 
 # Training parameters
 learning_rate = 0.8 # 0.8 # 0.1
-min_LR = 0.1 
+min_LR = 0.1
 decay_rate_LR = 1e-6
-gamma = 0.95 # 0.99   
+gamma = 0.95 # 0.99
 
 # Exploration parameters (for first training from scratch)
 max_epsilon = 1.0
@@ -191,8 +191,8 @@ def save_QT_model(agent,model_name):
     with open('output/'+model_name+'.json', 'w') as f:
         json.dump(config, f, indent=4)
     np.save('output/'+model_name+'.npy', agent.QTable)
-        
-        
+
+
 def load_QT_model(agent,model_name):
     # Read config data from a file
     with open('output/'+model_name+'.json', 'r') as f:
@@ -210,13 +210,13 @@ def load_QT_model(agent,model_name):
 
 
 
-# modes: Roller (prob=p%), Baseline, QTable        
+# modes: Roller (prob=p%), Baseline, QTable
 class PassThePigsAgent():
     def __init__(self,mode,threshold=25):    #used to be mode='Baseline'
         self.mode = mode
         if mode == 'QTable':
             # 20 buckets of scores from 0..GOAL points
-            # Addressable as QTable[tuple(state)][action]            
+            # Addressable as QTable[tuple(state)][action]
             # self.QTable = np.zeros((MAX_BUCKETS,MAX_BUCKETS,MAX_BUCKETS,len(ACTIONS)-1,len(ACTIONS)),dtype=float)
             if WITH_HOG_CALLS: # len(ACTIONS) > 2: # option for Hog Calls
                 self.QTable = np.random.rand(MAX_BUCKETS,MAX_BUCKETS,MAX_BUCKETS,len(ACTIONS)-1,len(ACTIONS))*0.001
@@ -230,17 +230,17 @@ class PassThePigsAgent():
             self.episode_rewards = np.zeros(AVG_EP) # last 1000 rewards
         else:
             self.threshold = threshold # optional parameter, different purposes
-        
+
     def predict(self,obs,training=False):
         if self.mode == 'QTable':
             if WITH_HOG_CALLS:
-                obs   = np.concatenate([np.minimum(obs[:-1]//BUCKET,MAX_BUCKETS-1),obs[-1:]]) # bucketing         
+                obs   = np.concatenate([np.minimum(obs[:-1]//BUCKET,MAX_BUCKETS-1),obs[-1:]]) # bucketing
             else:
-                obs   = np.minimum(obs//BUCKET,MAX_BUCKETS-1) # bucketing         
+                obs   = np.minimum(obs//BUCKET,MAX_BUCKETS-1) # bucketing
             state = tuple(obs)
             # print(state)
             action = epsilon_greedy_policy(self.QTable, state, self.epsilon if training else 0) # greedy policy when epsilon=0
-        
+
         elif self.mode == 'Baseline':
             # basic heuristic rule...
             action = ROLL # roll
@@ -250,8 +250,8 @@ class PassThePigsAgent():
             prob_roll = self.threshold/100
             action = np.random.choice([ROLL,PASS], 1, p=[prob_roll,(1-prob_roll)])[0]
         return action
-    
-    
+
+
     def learn(self,old_obs,action,new_obs,reward,terminated,truncated,info,idx):
         if self.mode == 'QTable':
             # print('\rlearning',action,reward,' '*20,end='')
@@ -259,12 +259,12 @@ class PassThePigsAgent():
             new_obs = np.array(new_obs)
 
             if WITH_HOG_CALLS:
-                old_obs = np.concatenate([np.minimum(old_obs[:-1]//BUCKET,MAX_BUCKETS-1),old_obs[-1:]]) # bucketing           
-                new_obs = np.concatenate([np.minimum(new_obs[:-1]//BUCKET,MAX_BUCKETS-1),new_obs[-1:]])            
-           
+                old_obs = np.concatenate([np.minimum(old_obs[:-1]//BUCKET,MAX_BUCKETS-1),old_obs[-1:]]) # bucketing
+                new_obs = np.concatenate([np.minimum(new_obs[:-1]//BUCKET,MAX_BUCKETS-1),new_obs[-1:]])
+
             else:
-                old_obs = np.minimum(old_obs//BUCKET,MAX_BUCKETS-1) # bucketing           
-                new_obs = np.minimum(new_obs//BUCKET,MAX_BUCKETS-1)    
+                old_obs = np.minimum(old_obs//BUCKET,MAX_BUCKETS-1) # bucketing
+                new_obs = np.minimum(new_obs//BUCKET,MAX_BUCKETS-1)
 
             old_state=tuple(old_obs)
             new_state=tuple(new_obs)
@@ -275,7 +275,7 @@ class PassThePigsAgent():
             #--------------------------------------------------------------------------------
             self.episode_reward += reward
 
-            #this is where we save log stats to tensorboard 
+            #this is where we save log stats to tensorboard
             if terminated:
                 self.episode_rewards[self.episode % AVG_EP] = self.episode_reward
                 self.episode += 1
@@ -293,7 +293,7 @@ class PassThePigsAgent():
             #(not done) keeps the terminal state as 0
             Q[state][action] += alpha * (reward + gamma * Q[nstate].max() * (not done) - Q[state][action])
             state = nstate
-            
+
             if done:
                 rewards.append(total_reward) #Keep track of the total rewards per episode
             """
@@ -304,7 +304,7 @@ class PassThePigsAgent():
 '''
 def train(n_training_episodes, min_epsilon, max_epsilon, decay_rate, env, max_steps, Qtable):
   for episode in trange(n_training_episodes):
- 
+
     epsilon = min_epsilon + (max_epsilon - min_epsilon)*np.exp(-decay_rate*episode)
     # Reset the environment
     state = env.reset()
@@ -321,7 +321,7 @@ def train(n_training_episodes, min_epsilon, max_epsilon, decay_rate, env, max_st
       # Our state is the new state
       state = new_state
   return Qtable
-'''    
+'''
 
 
 
@@ -356,7 +356,7 @@ class PassThePigs_2Players_Env(gym.Env):
         self.players = []
         self.agents  = [None, None] # for 2 players
         self.winner  = -1
-        
+
         # spaces documentation: https://gym.openai.com/docs/
         self.action_space = spaces.Discrete(len(ACTIONS))
         # 0 - Roll
@@ -370,8 +370,8 @@ class PassThePigs_2Players_Env(gym.Env):
                 'scores': gym.spaces.Box(low=0, high=100, shape=(N_PLAYERS+1,)),
                 'hog_call': gym.spaces.Box(low=0, high=1, shape=(1,)),
                  }
-        self.observation_space = gym.spaces.Dict(spaces)                 
-                 
+        self.observation_space = gym.spaces.Dict(spaces)
+
         self.observation_space = spaces.Box(low=0, high=100, shape=(N_PLAYERS+1+1,), dtype=int)
         """
 
@@ -379,23 +379,23 @@ class PassThePigs_2Players_Env(gym.Env):
         if WITH_HOG_CALLS: # len(ACTIONS) > 2: # option for Hog Calls
             low  = np.array([0,0,0,0])
             high = np.array([GOAL,GOAL,GOAL,len(ACTIONS)-2]) # hog_call: 0 (None|Pass), 1 (type 1), 2 (type 2)
-        
+
         else:
             low  = np.array([0,0,0])
             high = np.array([GOAL,GOAL,GOAL])
 
 
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=int)
-        print('render_mode',render_mode)        
+        print('render_mode',render_mode)
         if render_mode:
-            print('initializing pygame...')        
+            print('initializing pygame...')
             pg.init()
 
             self.screen = pg.display.set_mode((2*IMG_W, IMG_H + H_INFO))
 
             # Title
             pg.display.set_caption("Pass the pigs")
-            icon = pg.image.load('pass_the_pigs/game/icon.png')
+            icon = pg.image.load('assets/game/icon.png')
             pg.display.set_icon(icon)
 
             pg.font.init() # you have to call this at the start, if you want to use this module.
@@ -403,7 +403,7 @@ class PassThePigs_2Players_Env(gym.Env):
             self.font_comic = pg.font.SysFont('Comic Sans MS', 30) # This creates a new object on which you can call the render method.
             self.font_default = pg.font.SysFont('Consolas', 20)
 
-            fdir = 'pass_the_pigs/single_images/'
+            fdir = 'assets/single_images/'
             self.imgs =  glob.glob(fdir+'*.jpg')
             print(self.imgs)
 
@@ -412,7 +412,7 @@ class PassThePigs_2Players_Env(gym.Env):
             path, file = os.path.dirname(file), os.path.basename(file)
 
             # Background
-            self.background = pg.image.load('pass_the_pigs/game/pass_the_pigs_logo.png')
+            self.background = pg.image.load('assets/game/assets_logo.png')
             self.bkg = self.background.get_at((10, 10))
             # testing movement...
             self.xCursor = 0 # Creating the variable for the x coordinate of the object
@@ -421,7 +421,7 @@ class PassThePigs_2Players_Env(gym.Env):
             self.count = 0
 
             # To prevent repeated key events in Pygame, you can use pygame.key.set_repeat() with a delay of 0.
-            pg.key.set_repeat(0) 
+            pg.key.set_repeat(0)
 
 
     def _roll(self):
@@ -440,7 +440,7 @@ class PassThePigs_2Players_Env(gym.Env):
 
 
     #INTERACTIVE MODE ONLY!!!!
-    def _get_action(self): 
+    def _get_action(self):
           if not self.render_mode == "interactive": return
 
           action = NONE
@@ -457,9 +457,9 @@ class PassThePigs_2Players_Env(gym.Env):
                       pg.event.clear()
                       self.count += 1; print(self.count,'Roll')
                       action = ROLL
-                      play_sound = pg.mixer.Sound('pass_the_pigs/game/beep-sound-8333.mp3')
+                      play_sound = pg.mixer.Sound('assets/game/beep-sound-8333.mp3')
                       play_sound.play() # time.sleep(5); play_sound.stop() # let the sound play for 5 seconds.
-                  
+
                   elif event.key == pg.K_p: # Pass
                       pg.event.clear()
                       self.count += 1; print(self.count,'P')
@@ -482,7 +482,7 @@ class PassThePigs_2Players_Env(gym.Env):
           if keys[pg.K_RIGHT]: self.xCursor += self.vel
           if keys[pg.K_UP]:    self.yCursor -= self.vel
           if keys[pg.K_DOWN]:  self.yCursor += self.vel
-          if keys[pg.K_w]:     os.system("beep")      
+          if keys[pg.K_w]:     os.system("beep")
 
           return action
 
@@ -505,7 +505,7 @@ class PassThePigs_2Players_Env(gym.Env):
         #---------------------------------------------------------------------------
         # STATE OF THE GAME
         # player data: own total score, opp total score, turn score, hog call placed
-       
+
         if WITH_HOG_CALLS: # len(ACTIONS) > 2: # option for Hog Calls
             self.players = [[0,0,0,0],
                             [0,0,0,0]]
@@ -530,7 +530,7 @@ class PassThePigs_2Players_Env(gym.Env):
     def done_snapshot(self, reason):
         winners = 'ABX'
         self.last_game_info = f"Winner {winners[self.winner]} ({self.players[0][OWN_SCORE]} vs {self.players[1][OWN_SCORE]}) {reason}"
-    
+
 
     def step(self, action):
           player  = self.player
@@ -556,9 +556,9 @@ class PassThePigs_2Players_Env(gym.Env):
                       players[player][TURN_SCORE] = 0 # reset
 
                       if WITH_HOG_CALLS:
-                            players[player][HOG_CALL]   = 0  # clear hog call, only one per turn  
+                            players[player][HOG_CALL]   = 0  # clear hog call, only one per turn
                             players[opponent][HOG_CALL] = action - 1   #hog call is stored on opponents state because they now need to roll
-                      
+
                       self.player = opponent   #takes turns
 
           elif action == ROLL:
@@ -579,7 +579,7 @@ class PassThePigs_2Players_Env(gym.Env):
                                 #------------------------------
                                 done = True; reason = 'Piggyback'; self.winner = opponent; self.done_snapshot(reason)
                                 #------------------------------
-                          else: 
+                          else:
                                 # outcome = PIG_OUT
                                 # if VERBOSE: print(OUTS[outcome])
                                 reward = 0
@@ -587,11 +587,11 @@ class PassThePigs_2Players_Env(gym.Env):
 
                           players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
                           players[player][TURN_SCORE] = 0 # reset
-                          
+
                           if WITH_HOG_CALLS:
                                 players[player][HOG_CALL]   = 0 # clear hog call
                                 players[opponent][HOG_CALL] = 0 # no hog call made
-                          
+
                           self.player = opponent       #takes turns
 
                       else: # good roll...
@@ -599,8 +599,8 @@ class PassThePigs_2Players_Env(gym.Env):
                             hog_call = players[player][HOG_CALL]
                             if (hog_call==1 and score==HOG_CALL_SCORE_1) or (hog_call==2 and score==HOG_CALL_SCORE_2): # correct hog_call
                                 reward = - min(2*score, players[player][OWN_SCORE])
-                                players[player][OWN_SCORE] -= 2*score 
-                                
+                                players[player][OWN_SCORE] -= 2*score
+
                                 if players[player][OWN_SCORE] < 0:
                                     players[player][OWN_SCORE] = 0
 
@@ -613,7 +613,7 @@ class PassThePigs_2Players_Env(gym.Env):
                                 self.player = opponent
 
                                 reward += 1.0   #intermediate (immediate) rewards for correct hog call
-                            
+
                             else: # incorrect hog_call
                                 reward = 2*score
 
@@ -644,7 +644,7 @@ class PassThePigs_2Players_Env(gym.Env):
                                 #------------------------------
                                 done = True; reason = 'Goal reached'; self.winner = player; self.done_snapshot(reason)
                                 #------------------------------
-          
+
 
           # RECORD FOR TRAINING PURPOSES
           # copy.deepcopy(x)): A deep copy creates a completely independent copy of the original list, including all nested elements.
@@ -654,11 +654,11 @@ class PassThePigs_2Players_Env(gym.Env):
           if not done and action != ROLL:
              self.player = (self.player + 1) % NUM_PLAYERS
 
-          if done: 
+          if done:
               print("DONE!")
 
           return self._get_obs(), reward, done, False, {'reason':reason,'winner':self.winner}
-    
+
     def render(self):
           if not self.render_mode: return
           screen = self.screen
@@ -670,7 +670,7 @@ class PassThePigs_2Players_Env(gym.Env):
           screen.blit(self.background,(0,0))
           draw_text(screen,self.font_comic,self.last_game_info,(255, 255, 255),(IMG_W,IMG_H-40),center=True,antialias=False)
 
-          if self.throw: # throw:      
+          if self.throw: # throw:
             # pig1_text = os.path.basename(self.sample[0])
             # pig2_text = os.path.basename(self.sample[1])
             pig1_text = self.throw[0][0]
@@ -700,7 +700,7 @@ class PassThePigs_2Players_Env(gym.Env):
 
           pg.draw.rect(screen, (255, 0, 0),(self.xCursor, self.yCursor, 50, 50),2,10) # rounded rect
 
-          pg.display.update()  
+          pg.display.update()
 
           return
 
@@ -720,11 +720,11 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
     wins = [0,0]     #wins for player 1 [0], wins for player 2 [1]
 
     # while(isRunning):
-    while num_games < max_games: 
+    while num_games < max_games:
         obs, info = env.reset()
-        done = False 
+        done = False
 
-        if render_mode: 
+        if render_mode:
             time.sleep(RENDER_DELAY)
             env.render()
 
@@ -732,7 +732,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
         while(not done):
             action = env.get_action(training)
             obs, reward, done, truncated, info = env.step(action)
-            
+
             if training:
                 for k in range(NUM_PLAYERS):
                     # if change of score in current player: learn (action,reward)
@@ -741,12 +741,12 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
                     dif_score = env.new_obs[k][OWN_SCORE] - env.old_obs[k][OWN_SCORE]
 
                     # rew = dif
-                    rew = 0 # sparse rewards   only on win/lose 
+                    rew = 0 # sparse rewards   only on win/lose
                     if done:
-                        if env.winner==k:    
+                        if env.winner==k:
                             rew= 1.0      #reward normalized to 1
-                        else:   
-                            rew= -1.0      #penalty 
+                        else:
+                            rew= -1.0      #penalty
 
                     if rew != 0:
                         # print(k,'difs',env.new_obs[k][OWN_SCORE],env.old_obs[k][OWN_SCORE],dif)
@@ -760,17 +760,17 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
                             info,
                             k # idx for logging purposes
                             )
-                        
-            if render_mode: 
+
+            if render_mode:
                 time.sleep(RENDER_DELAY)
                 env.render()
 
 
-            # CHECK TERMINATION OF GAME    
+            # CHECK TERMINATION OF GAME
             if done:
                 if env.winner < 0:
                     raise ValueError(f'Invalid winner {env.winner}')
-                
+
                 # num_games1 += env.winner
                 wins[env.winner] += 1
 
@@ -794,7 +794,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False):
             print(f"TRAINING: RUN GAME: {run_game}\n")
 
         # isRunning = num_games < max_games
-      
+
     return num_games, wins[1]        #total games, player 2 wins
 
 
@@ -819,7 +819,7 @@ if __name__ == "__main__":
     setup = 'QTable_epochs_vs_Roller'
     setup = 'Baseline_vs_Roller'
     setup = 'Baseline_vs_Baseline'
-    
+
     env.agents[0] = PassThePigsAgent(mode='QTable')
 
     run_epoch = 0
@@ -865,5 +865,5 @@ if __name__ == "__main__":
     if TRAINING:
         writer.flush()
         writer.close()
-    
+
     exit()

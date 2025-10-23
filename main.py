@@ -1,7 +1,7 @@
 """
-Pass the Pigs - Main Runner Script
-This script sets up and runs the Pass the Pigs reinforcement learning game.
-It supports multiple modes: training, evaluation, and interactive play.
+Pass the Pigs - SEQUENTIAL VARIANT Main Runner Script
+This script sets up and runs the Sequential variant of Pass the Pigs.
+The Sequential variant allows agents to observe opponent's last action and points scored.
 
 Usage:
     python main.py [--mode MODE] [--games NUM_GAMES] [--render] [--training]
@@ -18,8 +18,8 @@ import argparse
 import time
 import numpy as np
 from env import (
-    PassThePigs_2Players_Env,
-    PassThePigsAgent,
+    PassThePigs_2Players_Sequential_Env,
+    PassThePigsAgent_Sequential,
     RENDER_MODE,
     TRAINING,
     RENDER_DELAY,
@@ -28,6 +28,8 @@ from env import (
     OPP_SCORE,
     TURN_SCORE,
     HOG_CALL,
+    OPP_LAST_ACTION,
+    OPP_LAST_POINTS,
     WITH_HOG_CALLS,
     save_QT_model,
     load_QT_model,
@@ -41,7 +43,7 @@ def play_single_game(env, render=True, training=False, verbose=True):
     Play a single game between two agents.
 
     Args:
-        env: The Pass the Pigs environment
+        env: The Pass the Pigs Sequential environment
         render: Whether to render the game visually
         training: Whether agents should learn from the game
         verbose: Whether to print game information
@@ -77,11 +79,6 @@ def play_single_game(env, render=True, training=False, verbose=True):
         # Training: update agent Q-tables based on experience
         if training:
             for k in range(NUM_PLAYERS):
-                # Calculate reward for this player
-                old_score = env.old_obs[k][OWN_SCORE]
-                new_score = env.new_obs[k][OWN_SCORE]
-                dif_score = new_score - old_score
-
                 # Sparse rewards: only on terminal states
                 rew = 0
                 if done:
@@ -105,7 +102,7 @@ def play_single_game(env, render=True, training=False, verbose=True):
 
         # Render the game state
         if render and env.render_mode:
-            time.sleep(max(RENDER_DELAY, 0.5))  # At least 0.5 seconds to see each action
+            time.sleep(max(RENDER_DELAY, 0.5))
             env.render()
 
         # Game ended
@@ -123,7 +120,7 @@ def play_single_game(env, render=True, training=False, verbose=True):
 
             if render and env.render_mode:
                 env.render()
-                time.sleep(RENDER_DELAY * 2)  # Pause to show final state
+                time.sleep(RENDER_DELAY * 2)
 
             break
 
@@ -142,7 +139,7 @@ def play_multiple_games(env, num_games=100, render=False, training=False, verbos
     Play multiple games and collect statistics.
 
     Args:
-        env: The Pass the Pigs environment
+        env: The Pass the Pigs Sequential environment
         num_games: Number of games to play
         render: Whether to render games visually
         training: Whether agents should learn
@@ -193,7 +190,7 @@ def play_multiple_games(env, num_games=100, render=False, training=False, verbos
 
     # Print summary
     print("\n" + "=" * 50)
-    print("FINAL STATISTICS")
+    print("FINAL STATISTICS (SEQUENTIAL VARIANT)")
     print("=" * 50)
     print(f"Total games played: {stats['total_games']}")
     print(f"Player 1 wins: {stats['wins'][0]} ({stats['win_rates'][0]:.2f}%)")
@@ -205,108 +202,12 @@ def play_multiple_games(env, num_games=100, render=False, training=False, verbos
     return stats
 
 
-def run_benchmark(env, games_per_matchup=15, training=False):
-    """
-    Run benchmark tests comparing different agent strategies.
-    Creates a matrix of results for different threshold combinations.
-
-    Args:
-        env: The Pass the Pigs environment
-        games_per_matchup: Number of games per strategy matchup
-        training: Whether to enable training mode
-
-    Returns:
-        results_matrix: Matrix of win rates for different configurations
-    """
-    print("\n" + "=" * 60)
-    print("RUNNING BENCHMARK TESTS")
-    print("=" * 60)
-
-    # Configuration
-    setup = 'QTable_vs_Baseline'
-    rows, cols = 15, 15  # Grid dimensions for threshold testing
-    mat = np.zeros((rows, cols))
-
-    # Set up Player 1 agent
-    env.agents[0] = PassThePigsAgent(mode='QTable')
-
-    start_time = time.time()
-    run_epoch = 0
-
-    print(f"\nBenchmark setup: {setup}")
-    print(f"Games per matchup: {games_per_matchup}")
-    print(f"Grid size: {rows}x{cols}")
-    print(f"Total games: {rows * cols * games_per_matchup}")
-    print("-" * 60)
-
-    # Run benchmark grid
-    for row in range(rows):
-        for col in range(cols):
-            # Configure Player 2 agent with different thresholds
-            threshold_p1 = row * 5
-            threshold_p2 = col * 5
-
-            env.agents[1] = PassThePigsAgent(mode='Baseline', threshold=threshold_p2)
-
-            # Play games for this configuration
-            wins = [0, 0]
-            for _ in range(games_per_matchup):
-                winner, _ = play_single_game(env, render=False, training=training, verbose=False)
-                wins[winner] += 1
-
-            # Calculate win rate for Player 2
-            win_rate_p2 = (wins[1] / games_per_matchup) * 100
-            mat[row, col] = win_rate_p2
-
-            # Update progress
-            elapsed = time.time() - start_time
-            progress = ((row * cols + col + 1) / (rows * cols)) * 100
-            print(f"\rProgress: {progress:.1f}% | "
-                  f"Config ({row},{col}) | "
-                  f"P2 Win Rate: {win_rate_p2:.1f}% | "
-                  f"Elapsed: {time.strftime('%H:%M:%S', time.gmtime(elapsed))}", end="")
-
-            if training and hasattr(writer, 'add_scalar'):
-                writer.add_scalar("benchmark/win_rate_p1", 100 - win_rate_p2, run_epoch)
-                writer.add_scalar("benchmark/win_rate_p2", win_rate_p2, run_epoch)
-                run_epoch += 1
-
-    print("\n" + "-" * 60)
-    print(f"Benchmark completed in {time.strftime('%H:%M:%S', time.gmtime(time.time() - start_time))}")
-
-    # Save results
-    print("\nSaving benchmark results...")
-    np.save(f'output/benchmark_matrix_{setup}.npy', mat)
-    np.savetxt(f'output/benchmark_matrix_{setup}.csv', mat, delimiter=',')
-
-    # Create flattened list format: [x, y, win_rate]
-    size = mat.size
-    benchmark_list = np.vstack([
-        np.arange(size) % cols,
-        np.arange(size) // cols,
-        mat.flatten()
-    ]).T
-    np.save(f'output/benchmark_list_{setup}.npy', benchmark_list)
-    np.savetxt(f'output/benchmark_list_{setup}.csv', benchmark_list, delimiter=',')
-
-    # Save Q-table if using Q-learning
-    if env.agents[0].mode == "QTable":
-        np.save(f'output/qtable_{model_name}.npy', env.agents[0].QTable)
-        save_QT_model(env.agents[0], model_name)
-        print(f"Q-table saved: output/qtable_{model_name}.npy")
-
-    print(f"Results saved to output/benchmark_*_{setup}.*")
-    print("=" * 60 + "\n")
-
-    return mat
-
-
 def run_training_session(env, num_epochs=100, games_per_epoch=50):
     """
     Run a training session for Q-learning agent.
 
     Args:
-        env: The Pass the Pigs environment
+        env: The Pass the Pigs Sequential environment
         num_epochs: Number of training epochs
         games_per_epoch: Number of games per epoch
 
@@ -314,14 +215,15 @@ def run_training_session(env, num_epochs=100, games_per_epoch=50):
         training_stats: Dictionary containing training statistics
     """
     print("\n" + "=" * 60)
-    print("TRAINING Q-LEARNING AGENT")
+    print("TRAINING Q-LEARNING AGENT - SEQUENTIAL VARIANT")
     print("=" * 60)
 
     # Set up agents
-    env.agents[0] = PassThePigsAgent(mode='QTable')
-    env.agents[1] = PassThePigsAgent(mode='Baseline', threshold=20)
+    env.agents[0] = PassThePigsAgent_Sequential(mode='QTable')
+    env.agents[1] = PassThePigsAgent_Sequential(mode='Baseline', threshold=20)
 
     print(f"\nTraining configuration:")
+    print(f"  Variant: SEQUENTIAL (with opponent action observation)")
     print(f"  Agent 1: Q-Learning (training)")
     print(f"  Agent 2: Baseline (threshold=20)")
     print(f"  Epochs: {num_epochs}")
@@ -371,67 +273,12 @@ def run_training_session(env, num_epochs=100, games_per_epoch=50):
     return epoch_stats
 
 
-def run_interactive_mode(env):
-    """
-    Run the game in interactive mode where the user plays via keyboard.
-
-    Controls:
-        SPACE or R: Roll the dice
-        P: Pass (end turn and bank points)
-        1: Hog Call 1 (bet on 5 points)
-        2: Hog Call 2 (bet on 10 points)
-        Arrow keys: Move cursor (visual demo)
-
-    Args:
-        env: The Pass the Pigs environment
-    """
-    print("\n" + "=" * 60)
-    print("INTERACTIVE MODE")
-    print("=" * 60)
-    print("\nControls:")
-    print("  SPACE or R : Roll the dice")
-    print("  P          : Pass (bank your points)")
-    if WITH_HOG_CALLS:
-        print("  1     : Hog Call 1 (bet on 5 points)")
-        print("  2          : Hog Call 2 (bet on 10 points)")
-    print("  Arrow Keys : Move cursor (demo)")
-    print("  Close window to quit")
-    print("-" * 60 + "\n")
-
-    # Set up one human player (interactive) and one AI player
-    env.agents[0] = None  # Interactive player (controlled by user)
-    env.agents[1] = PassThePigsAgent(mode='Baseline', threshold=20)
-
-    game_count = 0
-    wins = [0, 0]
-
-    try:
-        while True:
-            print(f"\n--- Starting Game {game_count + 1} ---")
-            winner, game_info = play_single_game(env, render=True, training=False, verbose=True)
-            wins[winner] += 1
-            game_count += 1
-
-            print(f"\nCurrent record: Player 1: {wins[0]} wins, Player 2: {wins[1]} wins")
-            print("Starting next game in 3 seconds...")
-            time.sleep(3)
-
-    except KeyboardInterrupt:
-        print("\n\nGame interrupted by user.")
-    except Exception as e:
-        print(f"\nGame ended: {e}")
-    finally:
-        print(f"\nFinal record: {game_count} games played")
-        print(f"  Player 1 wins: {wins[0]} ({(wins[0]/game_count*100) if game_count > 0 else 0:.1f}%)")
-        print(f"  Player 2 wins: {wins[1]} ({(wins[1]/game_count*100) if game_count > 0 else 0:.1f}%)")
-
-
 def run_console_mode(env, agent_mode='Baseline', agent_threshold=20, load_model=None):
     """
     Run the game in console mode - text-based interactive play without pygame.
 
     Args:
-        env: The Pass the Pigs environment (without render mode)
+        env: The Pass the Pigs Sequential environment (without render mode)
         agent_mode: AI agent strategy ('QTable', 'Baseline', 'Roller')
         agent_threshold: Threshold parameter for Baseline/Roller agents
         load_model: Path to Q-table model to load (optional)
@@ -439,8 +286,9 @@ def run_console_mode(env, agent_mode='Baseline', agent_threshold=20, load_model=
     from env import ROLL, PASS, HOG_CALL_1, HOG_CALL_2, GOAL
 
     print("\n" + "=" * 60)
-    print("CONSOLE MODE - TEXT-BASED INTERACTIVE GAME")
+    print("CONSOLE MODE - SEQUENTIAL VARIANT")
     print("=" * 60)
+    print("\n🎲 In this variant, you can see what your opponent did!")
     print("\nControls:")
     print("  r : Roll the dice")
     print("  p : Pass (bank your turn points)")
@@ -454,7 +302,7 @@ def run_console_mode(env, agent_mode='Baseline', agent_threshold=20, load_model=
 
     # Set up players
     env.agents[0] = None  # Human player (console input)
-    env.agents[1] = PassThePigsAgent(mode=agent_mode, threshold=agent_threshold)
+    env.agents[1] = PassThePigsAgent_Sequential(mode=agent_mode, threshold=agent_threshold)
 
     # Load Q-table model if specified
     if load_model and agent_mode == 'QTable':
@@ -503,18 +351,31 @@ def run_console_mode(env, agent_mode='Baseline', agent_threshold=20, load_model=
 def display_game_state(env, is_human=True):
     """
     Display the current game state (scores, turn info, warnings).
+    SEQUENTIAL VARIANT: Shows opponent's last action!
 
     Args:
-        env: The Pass the Pigs environment
+        env: The Pass the Pigs Sequential environment
         is_human: Whether the current player is human (for display purposes)
     """
     current_player = env.player
+    action_names = ['ROLL', 'PASS', 'HOG CALL 1', 'HOG CALL 2']
+
     print(f"\n-[TURN PLAYER]{'-'*46}")
     print(f"Player {current_player + 1} {'(YOU)' if is_human else '(AI)'}")
     print(f"-[SCORES]{'-'*51}")
     print(f"[Player 1] | Bank: {env.players[0][OWN_SCORE]:3d} | Turn: {env.players[0][TURN_SCORE]:3d}")
     print(f"[Player 2] | Bank: {env.players[1][OWN_SCORE]:3d} | Turn: {env.players[1][TURN_SCORE]:3d}")
+
+    # SEQUENTIAL INFO: Show opponent's last action
+    if env.players[current_player][OPP_LAST_ACTION] >= 0:
+        opp_action_idx = int(env.players[current_player][OPP_LAST_ACTION])
+        opp_points = int(env.players[current_player][OPP_LAST_POINTS])
+        if opp_action_idx < len(action_names):
+            print(f"-[OPPONENT INFO]{'-'*44}")
+            print(f"👀 Opponent's last move: {action_names[opp_action_idx]} ({opp_points:+d} points)")
+
     if WITH_HOG_CALLS and env.players[current_player][HOG_CALL] > 0:
+        print(f"-[WARNING]{'-'*50}")
         print(f"⚠️  Hog Call active! Opponent bet on you rolling {5 if env.players[current_player][HOG_CALL]==1 else 10} points!")
     print(f"{'-'*60}")
 
@@ -524,7 +385,7 @@ def play_console_game(env):
     Play a single game in console mode.
 
     Args:
-        env: The Pass the Pigs environment
+        env: The Pass the Pigs Sequential environment
 
     Returns:
         winner: Index of the winning player (0 or 1)
@@ -555,7 +416,7 @@ def play_console_game(env):
             action = env.agents[current_player].predict(obs_current, training=False)
             action_names = ['ROLL', 'PASS', 'HOG CALL 1', 'HOG CALL 2']
             print(f"\n🤖 AI chooses: {action_names[action]}")
-            time.sleep(1)  # Brief pause so user can see AI decision
+            time.sleep(1)
 
         # Execute action
         obs, reward, done, truncated, info = env.step(action)
@@ -611,10 +472,18 @@ def display_game_rules():
         with open('game_rules.txt', 'r', encoding='utf-8') as f:
             rules = f.read()
         print("\n" + rules)
+        print("\n" + "="*60)
+        print("SEQUENTIAL VARIANT SPECIAL RULE:")
+        print("="*60)
+        print("In this variant, you can see your opponent's last action")
+        print("and how many points they scored. Use this information")
+        print("strategically to adapt your gameplay!")
+        print("="*60)
         input("\nPress ENTER to continue...")
     except FileNotFoundError:
         print("\n❌ Rules file not found (game_rules.txt)")
         print("Basic rules: Roll to score points, Pass to bank them, reach 100 to win!")
+        print("\nSEQUENTIAL VARIANT: You can see opponent's last move!")
         input("\nPress ENTER to continue...")
 
 
@@ -650,7 +519,6 @@ def get_console_action(env):
             display_game_rules()
             # Re-display game state after viewing rules
             display_game_state(env, is_human=True)
-            # Continue the loop to ask for action again
         elif choice == 'q':
             confirm = input("Are you sure you want to quit? (y/n): ").strip().lower()
             if confirm == 'y':
@@ -660,26 +528,22 @@ def get_console_action(env):
 
 
 def main():
-    """Main entry point for the Pass the Pigs runner."""
+    """Main entry point for the Sequential Pass the Pigs runner."""
     parser = argparse.ArgumentParser(
-        description='Pass the Pigs - Reinforcement Learning Game',
+        description='Pass the Pigs - SEQUENTIAL VARIANT - Reinforcement Learning Game',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+SEQUENTIAL VARIANT: Agents observe opponent's last action and points scored!
+
 Examples:
   python main.py --mode console
-      Play in text-based console mode (no pygame required)
-
-  python main.py --mode interactive
-      Play the game interactively with keyboard controls
+      Play in text-based console mode (see opponent's moves!)
 
   python main.py --mode human --games 10
       Watch 10 games with visual rendering
 
   python main.py --mode train --epochs 50
-      Train a Q-learning agent for 50 epochs
-
-  python main.py --mode benchmark
-      Run benchmark tests comparing strategies
+      Train a Sequential Q-learning agent for 50 epochs
 
   python main.py --mode eval --games 100
       Evaluate agents over 100 games without rendering
@@ -690,10 +554,10 @@ Examples:
         '--mode',
         type=str,
         default='console',
-        choices=['console', 'interactive', 'human', 'train', 'benchmark', 'eval'],
-        help='Game mode: console (text-based play), interactive (pygame keyboard control), '
+        choices=['console', 'human', 'train', 'eval'],
+        help='Game mode: console (text-based play), '
              'human (watch with rendering), train (train Q-learning), '
-             'benchmark (strategy comparison), eval (no rendering)'
+             'eval (no rendering)'
     )
 
     parser.add_argument(
@@ -764,26 +628,23 @@ Examples:
 
     # Print header
     print("\n" + "=" * 60)
-    print("PASS THE PIGS - REINFORCEMENT LEARNING GAME")
+    print("PASS THE PIGS - SEQUENTIAL VARIANT")
     print("=" * 60)
     print(f"Mode: {args.mode}")
+    print(f"Variant: SEQUENTIAL (observe opponent actions)")
     print(f"Hog Calls: {'Enabled' if WITH_HOG_CALLS else 'Disabled'}")
 
     # Create environment based on mode
     if args.mode == 'console':
-        env = PassThePigs_2Players_Env(render_mode=None)
+        env = PassThePigs_2Players_Sequential_Env(render_mode=None)
         run_console_mode(env, agent_mode=args.agent2, agent_threshold=args.threshold2, load_model=args.load_model)
 
-    elif args.mode == 'interactive':
-        env = PassThePigs_2Players_Env(render_mode='interactive')
-        run_interactive_mode(env)
-
     elif args.mode == 'human':
-        env = PassThePigs_2Players_Env(render_mode='human')
+        env = PassThePigs_2Players_Sequential_Env(render_mode='human')
 
         # Set up agents
-        env.agents[0] = PassThePigsAgent(mode=args.agent1, threshold=args.threshold1)
-        env.agents[1] = PassThePigsAgent(mode=args.agent2, threshold=args.threshold2)
+        env.agents[0] = PassThePigsAgent_Sequential(mode=args.agent1, threshold=args.threshold1)
+        env.agents[1] = PassThePigsAgent_Sequential(mode=args.agent2, threshold=args.threshold2)
 
         # Load model if specified
         if args.load_model and env.agents[0].mode == 'QTable':
@@ -794,19 +655,15 @@ Examples:
         play_multiple_games(env, num_games=args.games, render=True, training=False, verbose=args.verbose)
 
     elif args.mode == 'train':
-        env = PassThePigs_2Players_Env(render_mode=None)
+        env = PassThePigs_2Players_Sequential_Env(render_mode=None)
         run_training_session(env, num_epochs=args.epochs, games_per_epoch=args.games_per_epoch)
 
-    elif args.mode == 'benchmark':
-        env = PassThePigs_2Players_Env(render_mode=None)
-        run_benchmark(env, games_per_matchup=15, training=TRAINING)
-
     elif args.mode == 'eval':
-        env = PassThePigs_2Players_Env(render_mode=None)
+        env = PassThePigs_2Players_Sequential_Env(render_mode=None)
 
         # Set up agents
-        env.agents[0] = PassThePigsAgent(mode=args.agent1, threshold=args.threshold1)
-        env.agents[1] = PassThePigsAgent(mode=args.agent2, threshold=args.threshold2)
+        env.agents[0] = PassThePigsAgent_Sequential(mode=args.agent1, threshold=args.threshold1)
+        env.agents[1] = PassThePigsAgent_Sequential(mode=args.agent2, threshold=args.threshold2)
 
         # Load model if specified
         if args.load_model and env.agents[0].mode == 'QTable':
@@ -822,7 +679,7 @@ Examples:
         writer.flush()
         writer.close()
 
-    print("\nThank you for playing Pass the Pigs!")
+    print("\nThank you for playing Pass the Pigs - Sequential Variant!")
     print("=" * 60 + "\n")
 
 

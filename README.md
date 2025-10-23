@@ -10,11 +10,13 @@
 Quick introduction: Pass the Pigs is a version of the dice game Pig (created by David Moffatt in 1977) and uses asymmetrical throwing dice.
 
 --> Each turn, players throw 2 model pigs (each has a dot on its side) and the player will gain/lose points or be eliminated from the game.
+
 --> Players can choose to "bank" points or risk losing them on a bad roll
+
 --> Winner is first player to reach a predetermined score (at the moment, we say 100).
 
 ### Rules
-![alt text](https://github.com/apayne185/pass-the-pig-RL/blob/main/assets/game/game-rules.png?raw=true)
+![pass_the_pigs_rules](assets/game/game-rules.png)
 
 
 ### Scoring System
@@ -166,7 +168,7 @@ python main.py --mode interactive
 **Controls:**
 - `SPACE` or `R` - Roll the dice
 - `P` - Pass (bank your points and end turn)
-- `H` or `1` - Hog Call 1 (bet on 5 points)
+- `1` - Hog Call 1 (bet on 5 points)
 - `2` - Hog Call 2 (bet on 10 points)
 - `Arrow Keys` - Move cursor (demo feature)
 - Close window to exit

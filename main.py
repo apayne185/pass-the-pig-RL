@@ -378,7 +378,7 @@ def run_interactive_mode(env):
     Controls:
         SPACE or R: Roll the dice
         P: Pass (end turn and bank points)
-        H or 1: Hog Call 1 (bet on 5 points)
+        1: Hog Call 1 (bet on 5 points)
         2: Hog Call 2 (bet on 10 points)
         Arrow keys: Move cursor (visual demo)
 
@@ -392,7 +392,7 @@ def run_interactive_mode(env):
     print("  SPACE or R : Roll the dice")
     print("  P          : Pass (bank your points)")
     if WITH_HOG_CALLS:
-        print("  H or 1     : Hog Call 1 (bet on 5 points)")
+        print("  1     : Hog Call 1 (bet on 5 points)")
         print("  2          : Hog Call 2 (bet on 10 points)")
     print("  Arrow Keys : Move cursor (demo)")
     print("  Close window to quit")
@@ -426,12 +426,15 @@ def run_interactive_mode(env):
         print(f"  Player 2 wins: {wins[1]} ({(wins[1]/game_count*100) if game_count > 0 else 0:.1f}%)")
 
 
-def run_console_mode(env):
+def run_console_mode(env, agent_mode='Baseline', agent_threshold=20, load_model=None):
     """
     Run the game in console mode - text-based interactive play without pygame.
 
     Args:
         env: The Pass the Pigs environment (without render mode)
+        agent_mode: AI agent strategy ('QTable', 'Baseline', 'Roller')
+        agent_threshold: Threshold parameter for Baseline/Roller agents
+        load_model: Path to Q-table model to load (optional)
     """
     from env import ROLL, PASS, HOG_CALL_1, HOG_CALL_2, GOAL
 
@@ -444,13 +447,22 @@ def run_console_mode(env):
     if WITH_HOG_CALLS:
         print("  1 : Hog Call 1 (bet opponent will roll exactly 5 points)")
         print("  2 : Hog Call 2 (bet opponent will roll exactly 10 points)")
+    print("  h : Help (view full game rules)")
     print("  q : Quit game")
     print("\nFirst to 100 points wins!")
     print("=" * 60 + "\n")
 
     # Set up players
     env.agents[0] = None  # Human player (console input)
-    env.agents[1] = PassThePigsAgent(mode='Baseline', threshold=20)
+    env.agents[1] = PassThePigsAgent(mode=agent_mode, threshold=agent_threshold)
+
+    # Load Q-table model if specified
+    if load_model and agent_mode == 'QTable':
+        load_QT_model(env.agents[1], load_model)
+        print(f"✅ Loaded Q-learning model: {load_model}\n")
+
+    print(f"AI Opponent: {agent_mode}" + (f" (threshold={agent_threshold})" if agent_mode != 'QTable' else ""))
+    print("=" * 60)
 
     game_count = 0
     wins = [0, 0]
@@ -488,6 +500,25 @@ def run_console_mode(env):
         print("Thank you for playing!")
 
 
+def display_game_state(env, is_human=True):
+    """
+    Display the current game state (scores, turn info, warnings).
+
+    Args:
+        env: The Pass the Pigs environment
+        is_human: Whether the current player is human (for display purposes)
+    """
+    current_player = env.player
+    print(f"\n-[TURN PLAYER]{'-'*46}")
+    print(f"Player {current_player + 1} {'(YOU)' if is_human else '(AI)'}")
+    print(f"-[SCORES]{'-'*51}")
+    print(f"[Player 1] | Bank: {env.players[0][OWN_SCORE]:3d} | Turn: {env.players[0][TURN_SCORE]:3d}")
+    print(f"[Player 2] | Bank: {env.players[1][OWN_SCORE]:3d} | Turn: {env.players[1][TURN_SCORE]:3d}")
+    if WITH_HOG_CALLS and env.players[current_player][HOG_CALL] > 0:
+        print(f"⚠️  Hog Call active! Opponent bet on you rolling {5 if env.players[current_player][HOG_CALL]==1 else 10} points!")
+    print(f"{'-'*60}")
+
+
 def play_console_game(env):
     """
     Play a single game in console mode.
@@ -511,14 +542,7 @@ def play_console_game(env):
         is_human = (env.agents[current_player] is None)
 
         # Display current game state
-        print(f"\n{'-'*60}")
-        print(f"TURN: Player {current_player + 1} {'(YOU)' if is_human else '(AI)'}")
-        print(f"{'-'*60}")
-        print(f"Player 1 Score: {env.players[0][OWN_SCORE]:3d} | Turn: {env.players[0][TURN_SCORE]:3d}")
-        print(f"Player 2 Score: {env.players[1][OWN_SCORE]:3d} | Turn: {env.players[1][TURN_SCORE]:3d}")
-        if WITH_HOG_CALLS and env.players[current_player][HOG_CALL] > 0:
-            print(f"⚠️  Hog Call active! Opponent bet on you rolling {5 if env.players[current_player][HOG_CALL]==1 else 10} points!")
-        print(f"{'-'*60}")
+        display_game_state(env, is_human)
 
         # Get action
         if is_human:
@@ -579,6 +603,21 @@ def play_console_game(env):
     return env.winner
 
 
+def display_game_rules():
+    """
+    Display the game rules from the rules file.
+    """
+    try:
+        with open('game_rules.txt', 'r', encoding='utf-8') as f:
+            rules = f.read()
+        print("\n" + rules)
+        input("\nPress ENTER to continue...")
+    except FileNotFoundError:
+        print("\n❌ Rules file not found (game_rules.txt)")
+        print("Basic rules: Roll to score points, Pass to bank them, reach 100 to win!")
+        input("\nPress ENTER to continue...")
+
+
 def get_console_action(env):
     """
     Get action from user via console input.
@@ -589,13 +628,13 @@ def get_console_action(env):
     Returns:
         action: The chosen action (ROLL, PASS, HOG_CALL_1, HOG_CALL_2) or None to quit
     """
-    from env import ROLL, PASS, HOG_CALL_1, HOG_CALL_2
+    from env import ROLL, PASS, HOG_CALL_1, HOG_CALL_2, HOG_CALL_SCORE_1, HOG_CALL_SCORE_2
 
     while True:
         valid_inputs = "r (roll), p (pass)"
         if WITH_HOG_CALLS:
-            valid_inputs += ", 1 (hog call 1), 2 (hog call 2)"
-        valid_inputs += ", q (quit)"
+            valid_inputs += f", 1 (hog call {HOG_CALL_SCORE_1} points), 2 (hog call {HOG_CALL_SCORE_2} points)"
+        valid_inputs += ", h (help), q (quit)"
 
         choice = input(f"\nYour choice [{valid_inputs}]: ").strip().lower()
 
@@ -607,6 +646,11 @@ def get_console_action(env):
             return HOG_CALL_1
         elif choice == '2' and WITH_HOG_CALLS:
             return HOG_CALL_2
+        elif choice == 'h':
+            display_game_rules()
+            # Re-display game state after viewing rules
+            display_game_state(env, is_human=True)
+            # Continue the loop to ask for action again
         elif choice == 'q':
             confirm = input("Are you sure you want to quit? (y/n): ").strip().lower()
             if confirm == 'y':
@@ -728,7 +772,7 @@ Examples:
     # Create environment based on mode
     if args.mode == 'console':
         env = PassThePigs_2Players_Env(render_mode=None)
-        run_console_mode(env)
+        run_console_mode(env, agent_mode=args.agent2, agent_threshold=args.threshold2, load_model=args.load_model)
 
     elif args.mode == 'interactive':
         env = PassThePigs_2Players_Env(render_mode='interactive')

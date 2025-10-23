@@ -1,0 +1,114 @@
+=============================================
+         PASS THE PIGS - GAME RULES
+=============================================
+
+OBJECTIVE:
+  Be the first player to reach 100 points!
+
+BASIC GAMEPLAY:
+  Players take turns rolling two pig dice. On your turn, you can:
+  - ROLL - Toss the pigs and score points (or risk losing them)
+  - PASS - Bank your turn score and end your turn
+  - HOG CALL - Make a risky bet when passing (optional)
+
+=============================================
+SCORING - WHAT THE PIGS CAN LAND ON:
+=============================================
+
+INSTANT LOSS - Your Turn Ends:
+  - Pig Out (opposite sides)                →  0 pts, turn ends
+  - Oinker (both on "Oinker" position)      →  Lose ALL banked points, turn ends
+  - Piggyback (pigs touching)               →  GAME OVER, you lose!
+
+Pig Positions
+  - Sider (on its side)                     →  1 point
+  - Double Sider                            →  1 point
+
+  - Razorback (on its back)                 →  5 points
+  - Trotter (standing on hoofs)             →  5 points
+
+  - Snouter (snout + two forehoofs)         → 10 points
+  - Double Razorback                        → 10 points
+  - Double Trotter                          → 10 points
+
+  - Leaning Jowler (jowl + ear + hoof)      → 15 points
+  - Double Snouter                          → 20 points
+  - Double Leaning Jowler                   → 30 points
+
+Mixed Combos:
+  Any combination adds up. Examples:
+  - Razorback (5) + Snouter (10)            → 15 points
+  - Trotter (5) + Leaning Jowler (15)       → 20 points
+
+=============================================
+TURN MECHANICS:
+=============================================
+
+YOUR TURN:
+  1. Roll the pigs to score points
+  2. Points accumulate in your "turn score" (not banked yet)
+  3. Keep rolling to build your turn score
+  4. PASS to bank your turn score (add to total)
+  5. If you roll Pig Out, Oinker, or Piggyback → lose turn!
+
+IMPORTANT:
+  - Turn scores are NOT safe until you PASS
+  - You can keep rolling as long as you don't get a bad outcome
+  - First to reach 100 points wins immediately
+
+=============================================
+HOG CALLING - ADVANCED STRATEGY
+=============================================
+
+What is it?
+  A risky bet you can make when passing your turn.
+  You predict what your opponent will roll next!
+
+How to Hog Call:
+  When passing, choose:
+  - HOG CALL 1 - Bet opponent rolls exactly 5 points
+  - HOG CALL 2 - Bet opponent rolls exactly 10 points
+
+If You're CORRECT:
+  ✅ Opponent loses DOUBLE the points (2× score)
+  ✅ You gain DOUBLE the points (2× score)
+  ✅ Opponent's turn ends immediately
+  ✅ Turn passes back to you
+
+If You're WRONG:
+  ❌ You lose DOUBLE the points (2× score)
+  ❌ Opponent gains DOUBLE the points (2× score)
+  ❌ Opponent continues rolling with doubled points!
+
+If Opponent Rolls Badly (Pig Out/Oinker):
+  - Hog call is cancelled, no one wins the bet
+  - Normal bad roll rules apply
+
+Strategy Tips:
+  - Score of 5 is common (~31% chance)
+  - Score of 10 is less common (~12% chance)
+  - Use when behind to catch up quickly
+  - Risk: opponent can snowball with doubled points!
+
+=============================================
+WINNING THE GAME:
+=============================================
+
+Standard Rules (Rules B):
+  - First player to reach 100+ points WINS immediately
+  - Game ends as soon as any player hits the goal
+  - No final round, instant victory!
+
+=============================================
+QUICK REFERENCE - CONSOLE COMMANDS:
+=============================================
+
+During Your Turn:
+  r  →  Roll the pigs
+  p  →  Pass (bank your turn score)
+  1  →  Hog Call 1 (bet on 5 points)
+  2  →  Hog Call 2 (bet on 10 points)
+  h  →  Help (view these rules anytime)
+  q  →  Quit game
+
+=============================================

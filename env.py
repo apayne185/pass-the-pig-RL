@@ -203,7 +203,7 @@ def load_QT_model(agent,model_name):
     agent.learning_rate = config['learning_rate']
     agent.epsilon       = config['epsilon']
     agent.episode       = config['episode']
-    agent.QTable = np.load(model_name+'.npy')
+    agent.QTable = np.load('output/'+model_name+'.npy')
 
 
 
@@ -650,9 +650,6 @@ class PassThePigs_2Players_Env(gym.Env):
           # copy.deepcopy(x)): A deep copy creates a completely independent copy of the original list, including all nested elements.
           self.new_obs = copy.deepcopy(players)
           self.last_actions[player] = action
-
-          if not done and action != ROLL:
-             self.player = (self.player + 1) % NUM_PLAYERS
 
           if done:
               print("DONE!")

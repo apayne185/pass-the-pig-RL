@@ -252,7 +252,7 @@ class PassThePigsAgent():
         return action
     
     
-    def learn(self,old_obs,action,new_obs,reward,terminated,truncated,info,idx):
+    def learn(self,old_obs,action,new_obs,reward,terminated,truncated,info,idx, stage_name):
         if self.mode == 'QTable':
             # print('\rlearning',action,reward,' '*20,end='')
             old_obs = np.array(old_obs)
@@ -279,10 +279,10 @@ class PassThePigsAgent():
             if terminated:
                 self.episode_rewards[self.episode % AVG_EP] = self.episode_reward
                 self.episode += 1
-                writer.add_scalar(f"Agent({idx})/reward", self.episode_reward, self.episode)
-                writer.add_scalar(f"Agent({idx})/reward_{AVG_EP}", np.sum(self.episode_rewards)/AVG_EP, self.episode)
-                writer.add_scalar(f"Agent({idx})/epsilon", self.epsilon, self.episode)
-                writer.add_scalar(f"Agent({idx})/learning_rate", self.learning_rate, self.episode)
+                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward", self.episode_reward, self.episode)
+                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward_{AVG_EP}", np.sum(self.episode_rewards)/AVG_EP, self.episode)
+                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/epsilon", self.epsilon, self.episode)
+                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/learning_rate", self.learning_rate, self.episode)
                 self.epsilon = epsilon_schedule(self.episode)
                 self.learning_rate = learning_schedule(self.episode)
                 self.episode_reward = 0
@@ -731,8 +731,10 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
         while(not done):
             action = env.get_action(training)
             obs, reward, done, truncated, info = env.step(action)
-            
+            tag_prefix = f"Curriculum/{stage_name}" if stage_name else "Games"
+
             if training:
+                writer.add_scalar(f"{tag_prefix}/Step_Reward", reward, run_game)
                 for k in range(NUM_PLAYERS):
                     # # if change of score in current player: learn (action,reward)
                     # old_score = env.old_obs[k][OWN_SCORE]
@@ -756,7 +758,8 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
                             done,
                             truncated,
                             info,
-                            k # idx for logging purposes
+                            k, # idx for logging purposes
+                            stage_name
                             )
                         
             if render_mode: 
@@ -766,6 +769,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
 
             # CHECK TERMINATION OF GAME    
             if done:
+                print("Episode done")
                 if env.winner < 0:
                     raise ValueError(f'Invalid winner {env.winner}')
                 
@@ -790,6 +794,8 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
 
         if training:
             tag_prefix = f"Curriculum/{stage_name}" if stage_name else "Games"
+            writer.add_scalar(f"{tag_prefix}/Intermediate_Reward", reward, run_game)
+
 
             # writer.add_scalar("Games/ratio(0)", win_ratio, run_game)
             # writer.add_scalar("Games/ratio(1)", 100 - win_ratio, run_game)
@@ -809,39 +815,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
 if __name__ == "__main__":
     render_mode = RENDER_MODE
     env = PassThePigs_2Players_Env(render_mode = render_mode)
-
-    # from stable_baselines3.common.env_checker import check_env
-    # It will check your custom environment and output additional warnings if needed
-    # check_env(env) # WARNING!!! Fails mysteriously...
-
-    # BENCHMARK COMPETITION BETWEEN MODELS
-    # mat = np.zeros((20,20))
-    # setup = 'QTable_epochs_vs_Roller'
-    # setup = 'Baseline_vs_Roller'
-    # setup = 'Baseline_vs_Baseline'
     
-    # rows= cols = 15           #used to be 20     (so 20x20x15=6000), simplified because this took 10+ hrs to run
-    # start = time.time()
-    # OLD VERSION: execution of games organized in a sort of matrix disposition for easier presentation/analysis of results
-    # for row in range(rows):
-    #     for col in range(cols):
-    #         # GAME START...
-    #         env.agents[0] = PassThePigsAgent(mode='Baseline',threshold=row*5)
-    #         env.agents[1] = PassThePigsAgent(mode='Baseline',threshold=col*5)
-    #         # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=75)
-    #         # env.agents[1] = PassThePigsAgent(mode='Roller',threshold=100) # 100% (always) roll...
-
-    #         num_games, num_games1 = play_games(env, GAMES_PER_EPOCH,training=TRAINING)
-
-    #         ratio1 = num_games1/num_games*100
-    #         ellapsed = time.time() - start # This gives the execution time in seconds.
-    #         print(f'\r({row},{col}) {num_games} RATIO: {ratio1:.2f}% {time.strftime("%H:%M:%S", time.gmtime(ellapsed))}'+' '*20, end="")
-    #         if TRAINING:
-    #             writer.add_scalar("ratio(0)", 100-ratio1, run_epoch)
-    #             run_epoch += 1
-    #         mat[row,col] = ratio1
-    
-
     run_epoch = 0
     GAMES_PER_EPOCH = 500      #used to be 15 (when in nested loop)
     setup = ["Train_vs_roller", "Train_vs_baseline", "Self_play"]      #c1, c2, c3
@@ -858,10 +832,17 @@ if __name__ == "__main__":
         elif s ==1: 
             if os.path.exists(f"output/my_qtable_2Players_c1_{model_name}.npy"):
                 env.agents[0].QTable = np.load(f"output/my_qtable_2Players_c1_{model_name}.npy")
+                print(f"Loaded previous QTable: output/my_qtable_2Players_c1_{model_name}.npy")
+            else:
+                print(f"Warning: Stage 2: output/my_qtable_2Players_c1_{model_name}.npy not found — starting from scratch.")
             env.agents[1] = PassThePigsAgent(mode='Baseline',threshold=100)
         elif s ==2: 
             if os.path.exists(f"output/my_qtable_2Players_c2_{model_name}.npy"):
                 env.agents[0].QTable = np.load(f"output/my_qtable_2Players_c2_{model_name}.npy")
+                print(f"Loaded previous QTable: output/my_qtable_2Players_c2_{model_name}.npy")
+            else:
+                print(f"Warning: Stage 3: output/my_qtable_2Players_c2_{model_name}.npy not found — starting from scratch.") 
+
             opp = PassThePigsAgent(mode='QTable', threshold=100)
             opp.QTable = env.agents[0].QTable.copy()      #cloning the trained qtable 
             env.agents[1] = opp
@@ -888,20 +869,6 @@ if __name__ == "__main__":
 
     print("\nCurriculum training done")
 
-
-# 
-    # np.save(f'output/my_mat_2Players_{setup}.npy', mat)
-    # np.savetxt(f'output/my_mat_2Players_{setup}.csv', mat, delimiter=',')
-    # rows,cols,size = mat.shape[0],mat.shape[1],mat.size
-    # print(rows,cols,size,mat.shape,mat.size)
-    # # my_list: x,y,z
-    # my_list = np.vstack([np.arange(size)%cols,np.arange(size)//rows,mat.flatten()]).T
-    # np.save(f'output/my_list_2Players_{setup}.npy', my_list)
-    # np.savetxt(f'output/my_list_2Players_{setup}.csv', my_list, delimiter=',')
-
-    # if env.agents[0].mode == "QTable":
-    #     np.save(f'output/my_qtable_2Players_{model_name}.npy', env.agents[0].QTable)
-    #     save_QT_model(env.agents[0],model_name)
 
     env.close()
     if TRAINING:

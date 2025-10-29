@@ -1,7 +1,7 @@
+__pycache__
 docs/*
 runs/*
 output/*
 !output/my_qtable_*
 !output/QT_0.*
-__pycache__
 tempCodeRunnerFile.py

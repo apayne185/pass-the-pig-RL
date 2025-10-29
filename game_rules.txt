@@ -70,15 +70,15 @@ How to Hog Call:
   - HOG CALL 2 - Bet opponent rolls exactly 10 points
 
 If You're CORRECT:
-  ✅ Opponent loses DOUBLE the points (2× score)
-  ✅ You gain DOUBLE the points (2× score)
-  ✅ Opponent's turn ends immediately
-  ✅ Turn passes back to you
+  > Opponent loses DOUBLE the points (2× score)
+  > You gain DOUBLE the points (2× score)
+  > Opponent's turn ends immediately
+  > Turn passes back to you
 
 If You're WRONG:
-  ❌ You lose DOUBLE the points (2× score)
-  ❌ Opponent gains DOUBLE the points (2× score)
-  ❌ Opponent continues rolling with doubled points!
+  > You lose DOUBLE the points (2× score)
+  > Opponent gains DOUBLE the points (2× score)
+  > Opponent continues rolling with doubled points!
 
 If Opponent Rolls Badly (Pig Out/Oinker):
   - Hog call is cancelled, no one wins the bet

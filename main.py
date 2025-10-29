@@ -459,7 +459,7 @@ def run_console_mode(env, agent_mode='Baseline', agent_threshold=20, load_model=
     # Load Q-table model if specified
     if load_model and agent_mode == 'QTable':
         load_QT_model(env.agents[1], load_model)
-        print(f"✅ Loaded Q-learning model: {load_model}\n")
+        print(f"Loaded Q-learning model: {load_model}\n")
 
     print(f"AI Opponent: {agent_mode}" + (f" (threshold={agent_threshold})" if agent_mode != 'QTable' else ""))
     print("=" * 60)
@@ -515,7 +515,7 @@ def display_game_state(env, is_human=True):
     print(f"[Player 1] | Bank: {env.players[0][OWN_SCORE]:3d} | Turn: {env.players[0][TURN_SCORE]:3d}")
     print(f"[Player 2] | Bank: {env.players[1][OWN_SCORE]:3d} | Turn: {env.players[1][TURN_SCORE]:3d}")
     if WITH_HOG_CALLS and env.players[current_player][HOG_CALL] > 0:
-        print(f"⚠️  Hog Call active! Opponent bet on you rolling {5 if env.players[current_player][HOG_CALL]==1 else 10} points!")
+        print(f"WARNING: Hog Call active! Opponent bet on you rolling {5 if env.players[current_player][HOG_CALL]==1 else 10} points!")
     print(f"{'-'*60}")
 
 
@@ -554,7 +554,7 @@ def play_console_game(env):
             obs_current = env._get_obs()
             action = env.agents[current_player].predict(obs_current, training=False)
             action_names = ['ROLL', 'PASS', 'HOG CALL 1', 'HOG CALL 2']
-            print(f"\n🤖 AI chooses: {action_names[action]}")
+            print(f"\nAI chooses: {action_names[action]}")
             time.sleep(1)  # Brief pause so user can see AI decision
 
         # Execute action
@@ -565,21 +565,21 @@ def play_console_game(env):
         if action == ROLL and env.throw:
             pig1, pig2 = env.throw[0]
             points = env.throw[2]
-            print(f"\n🎲 ROLL RESULT: {pig1} + {pig2}")
+            print(f"\nROLL RESULT: {pig1} + {pig2}")
             if points > 0:
-                print(f"✅ Scored {points} points!")
+                print(f"Scored {points} points!")
             else:
                 if pig1 == 'Oinker':
-                    print(f"💀 OINKER! Lost all banked points!")
+                    print(f"OINKER! Lost all banked points!")
                 elif pig1 == 'Piggyback':
-                    print(f"💀💀 PIGGYBACK! Game over!")
+                    print(f"PIGGYBACK! Game over!")
                 else:
-                    print(f"❌ PIG OUT! Lost turn (no points)")
+                    print(f"PIG OUT! Lost turn (no points)")
         elif action in [PASS, HOG_CALL_1, HOG_CALL_2]:
             action_msgs = {
-                PASS: f"✋ PASSED! Banked {env.old_obs[current_player][TURN_SCORE]} points.",
-                HOG_CALL_1: f"🎯 HOG CALL 1! Betting opponent rolls 5 points. Banked {env.old_obs[current_player][TURN_SCORE]} points.",
-                HOG_CALL_2: f"🎯 HOG CALL 2! Betting opponent rolls 10 points. Banked {env.old_obs[current_player][TURN_SCORE]} points."
+                PASS: f"PASSED! Banked {env.old_obs[current_player][TURN_SCORE]} points.",
+                HOG_CALL_1: f"HOG CALL 1! Betting opponent rolls 5 points. Banked {env.old_obs[current_player][TURN_SCORE]} points.",
+                HOG_CALL_2: f"HOG CALL 2! Betting opponent rolls 10 points. Banked {env.old_obs[current_player][TURN_SCORE]} points."
             }
             print(f"\n{action_msgs.get(action, '')}")
 
@@ -593,7 +593,7 @@ def play_console_game(env):
 
     # Game finished
     print(f"\n{'='*60}")
-    print(f"🏆 WINNER: Player {env.winner + 1} {'(YOU)' if env.winner == 0 else '(AI)'}!")
+    print(f"WINNER: Player {env.winner + 1} {'(YOU)' if env.winner == 0 else '(AI)'}!")
     print(f"{'='*60}")
     print(f"Final Scores:")
     print(f"  Player 1: {env.players[0][OWN_SCORE]} points")
@@ -613,7 +613,7 @@ def display_game_rules():
         print("\n" + rules)
         input("\nPress ENTER to continue...")
     except FileNotFoundError:
-        print("\n❌ Rules file not found (game_rules.txt)")
+        print("\nRules file not found (game_rules.txt)")
         print("Basic rules: Roll to score points, Pass to bank them, reach 100 to win!")
         input("\nPress ENTER to continue...")
 
@@ -656,7 +656,7 @@ def get_console_action(env):
             if confirm == 'y':
                 return None
         else:
-            print("❌ Invalid input. Please try again.")
+            print("Invalid input. Please try again.")
 
 
 def main():

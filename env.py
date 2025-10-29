@@ -180,7 +180,7 @@ def load_QT_model(agent,model_name):
         raise ValueError(f'Invalid action space {num_actions}|{len(ACTIONS)}')
     variant = config.get('variant', 'standard')
     if variant != 'sequential':
-        print(f"⚠️  Warning: Loading {variant} model into sequential environment")
+        print(f"WARNING: Loading {variant} model into sequential environment")
     agent.learning_rate = config['learning_rate']
     agent.epsilon       = config['epsilon']
     agent.episode       = config['episode']
@@ -353,7 +353,7 @@ class PassThePigs_2Players_Sequential_Env(gym.Env):
 
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=int)
 
-        print('🎲 SEQUENTIAL VARIANT initialized')
+        print('SEQUENTIAL VARIANT initialized')
         print(f'   Observation space: {self.observation_space.shape}')
         print(f'   render_mode: {render_mode}')
 

@@ -9,9 +9,10 @@
 
 Quick introduction: Pass the Pigs is a version of the dice game Pig (created by David Moffatt in 1977) and uses asymmetrical throwing dice. 
 
---> Each turn, players throw 2 model pigs (each has a dot on its side) and the player will gain/lose points or be eliminated from the game. 
---> Players can choose to "bank" points or risk losing them on a bad roll
---> Winner is first player to reach a predetermined score (at the moment, we say 100).
+- Each turn, players throw 2 model pigs (each has a dot on its side) and the player will gain/lose points or be eliminated from the game. 
+- Players can choose to "bank" points or risk losing them on a bad roll
+- Winner is first player to reach a predetermined score (at the moment, we say 100).
+- Hog Calls (optional): 
 
 ### Rules
 ![alt text](https://github.com/apayne185/pass-the-pig-RL/blob/main/pass_the_pigs/game/game-rules.png?raw=true)
@@ -54,32 +55,58 @@ Quick introduction: Pass the Pigs is a version of the dice game Pig (created by 
 ## Directory 
 ```
 pass-the-pig/
-├── env.py              # Main environment and agent classes
+├── env.py             # Main environment and agent classes, runs training and curriculum learning
 ├── environment.yml    # Conda environment setup
 ├── README.md          # This file
-├── output/            # Model results saved here 
-├── runs/              # 
+├── output/            # Model results saved here, trained QTables
+| ├── my_qtable_2Players_c1_QT_0.npy        # QTable from Stage 1 of Curriculum learning 
+│ ├── my_qtable_2Players_c2_QT_0.npy        # QTable from Stage 2 of Curriculum learning 
+│ └── my_qtable_2Players_c3_QT_0.npy         # QTable from Stage 3 of Curriculum learning (Self Play)
+├── runs/              # Tensorboard logs for monitoring processes
 └── pass_the_pigs/     # Game assets (images, sounds)
 ```
 
 ## Project Overview
 
+### env.py File
+
+Contains main environment and agent logic for 2 player Pass the Pig game
+- Implements Gymnasium compatible environment ```PassThePigs_2Player_Env``` which supports interactive, human, and training modes
+- Implements Q Table learning, baseline heuristic agents, and roller (random) agents
+- Includes curriculum learning setup for progressive training stages. 
+- Logs all results to TensorBoard for monitoring agent performances
+
+
 ### Environment Design
-- **State**: 
-- **Actions**: 
-- **Rewards**:
+- **reset()**: Initializes new gam and returns starting observation
+- **step(action)**: Executes given action for current player, updates game state, returns (obs, reward, done, truncated, info)
+- **render()**: Visualizes game in Pygame 
+- Supports 2 players and optional "Hog Calls"
+
+#### Observations:
+- Own score
+- Opponent score
+- Turn score
+- Hog call type (if enabled)
+
+#### Actions: 
+- **ROLL**: Roll the pigs/dice
+- **PASS**: End own turn
+- **HOG_CALL_1**: Hog call (prediction of 5 points)
+- **HOG_CALL_2**: Hog call (prediction of 10 points)
+
 
 
 ### Agent Architecture 
 
-The Q-learning agent features:
+1. Q-learning agent:
+    - **Curriculum Training**: Progressive opponent difficulty
+    - **Efficient Q-tables**: defaultdict implementation for large state spaces
+    - **Epsilon-greedy Exploration**: Balanced exploration vs exploitation
+    - **Threshold-based Strategies**: Intelligent banking decisions
 
-- **Curriculum Training**: Progressive opponent difficulty
-- **Efficient Q-tables**: defaultdict implementation for large state spaces
-- **Epsilon-greedy Exploration**: Balanced exploration vs exploitation
-- **Threshold-based Strategies**: Intelligent banking decisions
-
-
+2. Baseline agent: heuristic agent that passes when turn score exceeds a threshold
+3. Roller agent: random agent with a probability of rolling
 
 
 ## Running the Code
@@ -88,13 +115,37 @@ The Q-learning agent features:
 - Python 3.7+
 - pip package manager 
 
-**Activate the conda environment**
+### **Activate the conda environment**
 
-```bash 
+```powershell 
 conda env create -f environment.yml
 conda activate ptp-env
 conda list
 ```
+
+### **Training**
+By using curriculum learning with three progressively more difficult stages (opponents): 
+1. QTable agent vs Roller agent
+2. QTable agent vs Baseline agent
+3. Self play between 2 QTable agents
+
+### **Playing Games**
+Use the function ```play_games(env, max_games, training, stage_name)``` to simulate multiple games that tracks wins/rewards per player. This supports both training and evaluation modes. 
+
+### **View Tensorboard Dashboard**
+
+Run this on the root directory, do not cd into /runs. 
+
+```powershell 
+tensorboard --logdir=runs
+```
+
+### **Visualization**
+Interactive mode (```render_mode='interactive'```) allows controlling the game with the keyboard
+- SPACE or 'R': roll
+- 'P': pass
+- 'H' or '1': Hog call 1
+- '2': Hog call 2
 
 
 
@@ -111,5 +162,6 @@ This project is available for educational and research purposes.
 
 
 *need to analyze the final results using the graph examples in the pdf slideshow*
+
 
 

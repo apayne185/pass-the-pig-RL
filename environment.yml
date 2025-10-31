@@ -8,6 +8,7 @@ dependencies:
   - pygame
   - pytorch
   - tensorboard
+  - numba
   - pip
   - pip:
       - gymnasium==0.26.2

@@ -12,7 +12,7 @@ Quick examples:
       python main.py --mode interactive --agent2 Baseline --threshold2 20
 
 Notes on model loading:
-  --load-model takes the model ID without extension (e.g., QT_0). Files are
+  --load-model takes the model ID without extension (QT_0). Files are
   typically in output/QT_0.json and output/QT_0.npy. This script includes a
   robust loader that tries both output/<id>.* and <id>.*.
 """

@@ -22,6 +22,8 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import pygame as pg
 from collections import defaultdict
+from numba import njit
+from numba_utils import step_logic
 
 
 
@@ -76,6 +78,16 @@ MAX_BUCKETS = 10    #if we have hog calls, table becomes 5d and 20^5 = 3.2 milli
 # SYSTEM DYNAMICS
 # Throw, probability, score
 THROWS = [[('Oinker', 'Oinker'), 0.0386, 0], [('Piggyback', 'Piggyback'), 0.001, 0], [('Side Pink', 'Side Pink'), 0.0961, 1], [('Side Pink', 'Side Dot'), 0.0961, 0], [('Side Pink', 'Razorback'), 0.0465, 5], [('Side Pink', 'Trotter'), 0.031, 5], [('Side Pink', 'Snouter'), 0.0217, 10], [('Side Pink', 'Leaning Jowler'), 0.0124, 15], [('Side Dot', 'Side Pink'), 0.0961, 0], [('Side Dot', 'Side Dot'), 0.0961, 1], [('Side Dot', 'Razorback'), 0.0465, 5], [('Side Dot', 'Trotter'), 0.031, 5], [('Side Dot', 'Snouter'), 0.0217, 10], [('Side Dot', 'Leaning Jowler'), 0.0124, 15], [('Razorback', 'Side Pink'), 0.0465, 5], [('Razorback', 'Side Dot'), 0.0465, 5], [('Razorback', 'Razorback'), 0.0225, 10], [('Razorback', 'Trotter'), 0.015, 10], [('Razorback', 'Snouter'), 0.0105, 15], [('Razorback', 'Leaning Jowler'), 0.006, 20], [('Trotter', 'Side Pink'), 0.031, 5], [('Trotter', 'Side Dot'), 0.031, 5], [('Trotter', 'Razorback'), 0.015, 10], [('Trotter', 'Trotter'), 0.01, 10], [('Trotter', 'Snouter'), 0.007, 15], [('Trotter', 'Leaning Jowler'), 0.004, 20], [('Snouter', 'Side Pink'), 0.0217, 10], [('Snouter', 'Side Dot'), 0.0217, 10], [('Snouter', 'Razorback'), 0.0105, 15], [('Snouter', 'Trotter'), 0.007, 15], [('Snouter', 'Snouter'), 0.0049, 20], [('Snouter', 'Leaning Jowler'), 0.0028, 25], [('Leaning Jowler', 'Side Pink'), 0.0124, 15], [('Leaning Jowler', 'Side Dot'), 0.0124, 15], [('Leaning Jowler', 'Razorback'), 0.006, 20], [('Leaning Jowler', 'Trotter'), 0.004, 20], [('Leaning Jowler', 'Snouter'), 0.0028, 25], [('Leaning Jowler', 'Leaning Jowler'), 0.0016, 30]]
+THROW_MAP = {'Oinker': OINKER, 'Piggyback': PIGGYBACK, 'PIG_OUT': PIG_OUT,  #-1, -2, 0
+             'Side Pink': 2, 
+             'Side Dot': 2,
+             'Razorback': 2,
+             'Trotter': 2,
+             'Snouter': 2,
+             'Leaning Jowler': 2
+             } 
+
+
 # just for debugging purposes
 # for k in range(n := len(THROWS)): THROWS[k][1] = 1/n # equi-probable...
 # print(THROWS)
@@ -95,7 +107,7 @@ IMG_H  = 410
 H_INFO = 120
 FPS    = 20
 VERBOSE = False
-RENDER_MODE = 'None'       # None # 'human' 'interactive'
+RENDER_MODE = None       # None # 'human' 'interactive'
 if RENDER_MODE == 'interactive':
     assert WITH_HOG_CALLS, "Interactive Mode is setup for Hog Calls options"
 
@@ -202,7 +214,7 @@ def load_QT_model(agent,model_name):
     agent.learning_rate = config['learning_rate']
     agent.epsilon       = config['epsilon']
     agent.episode       = config['episode']
-    agent.QTable = np.load(model_name+'.npy')
+    agent.QTable = np.load('output/'+model_name+'.npy')      #previously did not have output/
 
 
 
@@ -214,10 +226,7 @@ def load_QT_model(agent,model_name):
 class PassThePigsAgent():
     def __init__(self,mode,threshold=25):
         self.mode = mode
-        if mode == 'QTable':
-            # Addressable as QTable[tuple(state)][action]
-            # self.QTable = np.zeros((MAX_BUCKETS,MAX_BUCKETS,MAX_BUCKETS,len(ACTIONS)-1,len(ACTIONS)),dtype=float)
-
+        if mode == 'QTable': # Addressable as QTable[tuple(state)][action]
             if WITH_HOG_CALLS:
                 #own_score_bucket, opp_score_bucket, turn_score_bucket, hog_call (0-2), opp_last_action (0-3), opp_last_points_bucket (0-9), actions
                 self.QTable = np.random.rand(MAX_BUCKETS,MAX_BUCKETS,MAX_BUCKETS,
@@ -389,8 +398,10 @@ class PassThePigs_2Players_Env(gym.Env):
 
 
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=int)
-        print(f'Observation space: {self.observation_space.shape}')
-        print('render_mode',render_mode)
+        # self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.int32)
+
+        # print(f'Observation space: {self.observation_space.shape}')
+        # print('render_mode',render_mode)
 
         if render_mode:
             print('initializing pygame...')
@@ -410,7 +421,7 @@ class PassThePigs_2Players_Env(gym.Env):
 
             fdir = 'pass_the_pigs/single_images/'
             self.imgs =  glob.glob(fdir+'*.jpg')
-            print(self.imgs)
+            # print(self.imgs)
 
             sample = random.sample(self.imgs, 2)
             file, ext = os.path.splitext(sample[0])
@@ -436,10 +447,10 @@ class PassThePigs_2Players_Env(gym.Env):
         if self.render_mode:
              # sample = random.sample(self.imgs, 2)
             self.sample = []
-            print([img for img in self.imgs if self.throw[0][0] in img])
+            # print([img for img in self.imgs if self.throw[0][0] in img])
             s0 = random.sample([img for img in self.imgs if self.throw[0][0] in img], 1)[0]
             self.sample.append(s0)
-            print([img for img in self.imgs if self.throw[0][1] in img])
+            # print([img for img in self.imgs if self.throw[0][1] in img])
             s1 = random.sample([img for img in self.imgs if self.throw[0][1] in img], 1)[0]
             self.sample.append(s1)
 
@@ -508,6 +519,9 @@ class PassThePigs_2Players_Env(gym.Env):
 
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
+        if seed is not None: 
+            np.random.seed(seed)       #reproducible randomness, ensures deterministic behavior 
+
         self.throw = None
         self.player = 0
         self.players = []
@@ -535,145 +549,80 @@ class PassThePigs_2Players_Env(gym.Env):
         self.last_game_info = f"Winner {winners[self.winner]} ({self.players[0][OWN_SCORE]} vs {self.players[1][OWN_SCORE]}) {reason}"
 
 
-    def step(self, action):
-          player  = self.player
-          players = self.players
-          done = False; reason = ''; reward = 0 # Just for action NONE (only in interactive mode)
-          if action == NONE:
-              if self.render_mode != 'interactive':
-                raise ValueError(f'Invalid action {action}')
-              else:
-                return self._get_obs(), reward, done, False, {'reason':reason,'winner':self.winner}
+    def step(self, action):       #uses numba_utils to speed up
+        player  = self.player
+        players = self.players
+        done = False; reason = ''; reward = 0  
 
-          # RECORD FOR TRAINING PURPOSES
-          # copy.deepcopy(x)): A deep copy creates a completely independent copy of the original list, including all nested elements.
-          self.old_obs = copy.deepcopy(players)
-
-          # STEP
-          opponent = (player + 1) % NUM_PLAYERS # ONLY WORKS FOR TWO PLAYERS
-
-          if action in [PASS, HOG_CALL_1, HOG_CALL_2]:
-                      reward = 0
-                      points_this_action = players[player][TURN_SCORE]
-                      players[player][OWN_SCORE] += players[player][TURN_SCORE]
-                    #   print(f"[DEBUG] Player {player} scores: own={players[player][OWN_SCORE]}, turn={players[player][TURN_SCORE]}")
-                      players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
-                      players[player][TURN_SCORE] = 0 # reset
-
-                      if WITH_HOG_CALLS:
-                            players[player][HOG_CALL]   = 0  # clear hog call, only one per turn
-                            players[opponent][HOG_CALL] = action - 1   #hog call is stored on opponents state because they now need to roll
-
-                      players[opponent][OPP_LAST_ACTION] = action
-                      players[opponent][OPP_LAST_POINTS] = points_this_action
-                      self.player = opponent   #takes turns
-
-          elif action == ROLL:
-                      self._roll()
-                      score = self.throw[2]
-                      # OUTS      = ['PIG_OUT','PIGGYBACK','OINKER']
-                      if score == 0: # bad roll...
-                          if self.throw[0][0] == 'Oinker':
-                                reward = -players[player][OWN_SCORE]
-                                points_this_action = -players[player][OWN_SCORE]
-                                players[player][OWN_SCORE] = 0 # Back to Zero
-                          elif self.throw[0][0] == 'Piggyback':
-                                reward = -players[player][OWN_SCORE]
-                                points_this_action = -players[player][OWN_SCORE]
-                                players[player][OWN_SCORE] = 0 # Back to Zero
-                                #------------------------------
-                                done = True; reason = 'Piggyback'; self.winner = opponent; self.done_snapshot(reason)
-                                #------------------------------
-                          else:
-                                # outcome = PIG_OUT
-                                # if VERBOSE: print(OUTS[outcome])
-                                reward = 0
-                                points_this_action = 0
-                                players[player][OWN_SCORE] += 0 # No change
-
-                          players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
-                          players[player][TURN_SCORE] = 0 # reset
-
-                          if WITH_HOG_CALLS:
-                                players[player][HOG_CALL]   = 0 # clear hog call
-                                players[opponent][HOG_CALL] = 0 # no hog call made
-
-                          self.player = opponent       #takes turns
+        if action == NONE:      #for itneractive mode
+            if self.render_mode != 'interactive':
+                raise ValueError(f'Invalid action {action}')    
+            else:
+                return self._get_obs(), reward, done, False, {'reason': reason, 'winner': self.winner}
+            
+        if action == ROLL:
+            self._roll()
+            throw_outcome = THROW_MAP[self.throw[0][0]]
+            throw_score = int(self.throw[2])
+        else: 
+            throw_outcome = -1  #placeholder
+            throw_score = 0     #placeholder
 
 
-                      else: # good roll...
-                        if WITH_HOG_CALLS and players[player][HOG_CALL] > 0: # opponent had made a "hog call"
-                            hog_call = players[player][HOG_CALL]
-                            if (hog_call==1 and score==HOG_CALL_SCORE_1) or (hog_call==2 and score==HOG_CALL_SCORE_2): # correct hog_call
-                                reward = - min(2*score, players[player][OWN_SCORE])
-                                points_this_action = - min(2*score, players[player][OWN_SCORE])
-                                players[player][OWN_SCORE] -= 2*score
+        self.old_obs = copy.deepcopy(players)
+        #numba logic from numba_utils.py 
+        players_array = np.array(self.players, dtype=np.int64)    #convert to array so numba can use
 
-                                if players[player][OWN_SCORE] < 0:
-                                    players[player][OWN_SCORE] = 0
+        new_players, next_player, reward, done, points_this_action, reason_code, winner_idx = step_logic(
+            players_array,
+            player,
+            action,
+            throw_outcome,
+            throw_score,
+            WITH_HOG_CALLS,
+            HOG_CALL_SCORE_1,
+            HOG_CALL_SCORE_2,
+            GOAL
+        )
 
-                                players[opponent][OWN_SCORE] += 2*score
-                                players[player][OPP_SCORE]   = players[opponent][OWN_SCORE]
-                                players[opponent][OPP_SCORE] = players[player][OWN_SCORE]
-                                players[player][TURN_SCORE] = 0 # reset
-                                players[player][HOG_CALL]   = 0 # clear hog call
-                                players[opponent][HOG_CALL] = 0 # no hog call made
-                                players[opponent][OPP_LAST_ACTION] = action
-                                players[opponent][OPP_LAST_POINTS] = points_this_action
-                                self.player = opponent
+        self.players = new_players.tolist()   #convert back to list
+        self.player = int(next_player)
 
-                                reward += 1.0   #intermediate (immediate) rewards for correct hog call
-
-                            else: # incorrect hog_call
-                                reward = 2*score
-                                points_this_action= 2*score
-
-                                players[opponent][OWN_SCORE] -= 2*score
-                                if players[opponent][OWN_SCORE] < 0:
-                                    players[opponent][OWN_SCORE] = 0
-                                players[player][OPP_SCORE]   = players[opponent][OWN_SCORE]
-
-                                players[player][TURN_SCORE] += 2*score # turn score
-                                if players[player][TURN_SCORE] + players[player][OWN_SCORE] > GOAL:
-                                    players[player][OWN_SCORE] += players[player][TURN_SCORE]
-                                    #------------------------------
-                                    done = True; reason = 'Goal reached (hog call)'; self.winner = player; self.done_snapshot(reason)
-                                    #------------------------------
-
-                                players[player][HOG_CALL]   = 0 # clear hog call
-                                players[opponent][HOG_CALL] = 0 # no hog call made
-                                players[opponent][OPP_LAST_ACTION] = action
-                                players[opponent][OPP_LAST_POINTS] = points_this_action
-
-                                reward -= 1.0     #intermediate reward
+        if reason_code == 0:
+            reason = ''
+        elif reason_code == 1:
+            reason = 'PIGGYBACK'
+        elif reason_code == 2:
+            reason = 'GOAL reached'
+        elif reason_code == 3:
+            reason = 'GOAL reached - hog call'
+        else:
+            reason = ''  
 
 
-                        else: # good roll, no hog_call
-                            reward = score
-                            points_this_action = score
-                            players[player][TURN_SCORE] += score # turn score
-                            if players[player][TURN_SCORE] + players[player][OWN_SCORE] > GOAL:
-                                players[player][OWN_SCORE] += players[player][TURN_SCORE]
-                                #------------------------------
-                                done = True; reason = 'Goal reached'; self.winner = player; self.done_snapshot(reason)
-                                #------------------------------
+       # RECORD FOR TRAINING PURPOSES
+        self.new_obs = copy.deepcopy(players)
+        self.last_actions[player] = action
+        self.last_points[player] = points_this_action
+
+        if done:
+            print("DONE!")
+            if winner_idx is not None and int(winner_idx) >= 0:
+                self.winner = int(winner_idx)
+                self.done_snapshot(reason)
+            else:
+                if self.players[player][OWN_SCORE] >= GOAL:
+                    self.winner = player
+                    self.done_snapshot(reason)
+                elif self.players[(player+1)%2][OWN_SCORE] >= GOAL:
+                    self.winner = (player+1) % 2
+                    self.done_snapshot(reason)
 
 
-          # RECORD FOR TRAINING PURPOSES
-          # copy.deepcopy(x)): A deep copy creates a completely independent copy of the original list, including all nested elements.
-          self.new_obs = copy.deepcopy(players)
-          self.last_actions[player] = action
-          self.last_points[player] = points_this_action
+        return self._get_obs(), reward, done, False, {'reason': reason, 'winner': self.winner}
 
-             # IMPORTANT: Player switching is already handled explicitly in the
-             # branches above (e.g., on PASS/HOG_CALL or on bad roll outcomes).
-             # Avoid switching again here, which caused the turn to bounce back to
-             # the original player after a PASS/HOG_CALL.
 
-          if done:
-              print("DONE!")
 
-          return self._get_obs(), reward, done, False, {'reason':reason,'winner':self.winner}
 
     def render(self):
           if not self.render_mode: return

@@ -161,7 +161,7 @@ STAGE = 0
 model_name  = f'QT_{STAGE}'
 
 # Training parameters
-learning_rate = 0.8 # 0.8 # 0.1
+learning_rate = 0.5 #WAS 0.8 # 0.1  
 min_LR = 0.1
 decay_rate_LR = 1e-6
 gamma = 0.95 # 0.99
@@ -320,6 +320,8 @@ class PassThePigsAgent():
 
             old_state=tuple(old_obs_processed.astype(int))
             new_state=tuple(new_obs_processed.astype(int))
+            print(f"DEBUG old_state={old_state}, new_state={new_state}, action={action} - inside learn()")
+
 
 
             #--------------------------------------------------------------------------------
@@ -332,8 +334,10 @@ class PassThePigsAgent():
             #this is where we save log stats to tensorboard
             if terminated:
                 self.episode_rewards[self.episode % AVG_EP] = self.episode_reward
+                print(f"Logging to TensorBoard: episode {self.episode}, reward {self.episode_reward}, epsilon {self.epsilon} - inside leanr()")
                 self.episode += 1
                 # role = "Leader" if idx==0 else "Follower"
+                print("Writer object exists:", writer)
                 writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward", self.episode_reward, self.episode)
                 writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward_{AVG_EP}", np.sum(self.episode_rewards)/AVG_EP, self.episode)
                 writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/epsilon", self.epsilon, self.episode)
@@ -552,13 +556,13 @@ class PassThePigs_2Players_Env(gym.Env):
     def step(self, action):       #uses numba_utils to speed up
         player  = self.player
         players = self.players
-        done = False; reason = ''; reward = 0  
+        terminated = False; reason = ''; reward = 0; truncated = False  
 
         if action == NONE:      #for itneractive mode
             if self.render_mode != 'interactive':
                 raise ValueError(f'Invalid action {action}')    
             else:
-                return self._get_obs(), reward, done, False, {'reason': reason, 'winner': self.winner}
+                return self._get_obs(), reward, terminated, truncated, {'reason': reason, 'winner': self.winner}
             
         if action == ROLL:
             self._roll()
@@ -584,42 +588,48 @@ class PassThePigs_2Players_Env(gym.Env):
             HOG_CALL_SCORE_2,
             GOAL
         )
+        print(f"[DEBUG step_logic()] player={player}, action={action}, reward={reward}, done={done}, winner_idx={winner_idx}, reason_code={reason_code}")
+
 
         self.players = new_players.tolist()   #convert back to list
         self.player = int(next_player)
 
-        if reason_code == 0:
-            reason = ''
-        elif reason_code == 1:
-            reason = 'PIGGYBACK'
-        elif reason_code == 2:
-            reason = 'GOAL reached'
-        elif reason_code == 3:
-            reason = 'GOAL reached - hog call'
-        else:
-            reason = ''  
+        REASON_MAP = {  
+        0: "",
+        1: "PIGGYBACK",
+        2: "GOAL reached",
+        3: "GOAL reached - hog call",           
+        }
+        reason = REASON_MAP.get(reason_code, "")
 
 
        # RECORD FOR TRAINING PURPOSES
-        self.new_obs = copy.deepcopy(players)
+        self.new_obs = copy.deepcopy(self.players)
         self.last_actions[player] = action
         self.last_points[player] = points_this_action
+        # winners = {0: "P1", 1:"P2"}
 
         if done:
-            print("DONE!")
+            terminated = done
+            # print("DONE!")
+            # print(f"[DEBUG step()] done={done}, terminated={terminated}, reward={reward}, winner={self.winner}")
             if winner_idx is not None and int(winner_idx) >= 0:
                 self.winner = int(winner_idx)
-                self.done_snapshot(reason)
-            else:
-                if self.players[player][OWN_SCORE] >= GOAL:
-                    self.winner = player
-                    self.done_snapshot(reason)
-                elif self.players[(player+1)%2][OWN_SCORE] >= GOAL:
-                    self.winner = (player+1) % 2
-                    self.done_snapshot(reason)
+            elif self.players[player][OWN_SCORE] >= GOAL:
+                self.winner = player
+            elif self.players[(player+1)%2][OWN_SCORE] >= GOAL:
+                self.winner = (player+1) % 2
+                    
+            # self.winner = winner
+            self.done_snapshot(reason)
+            # print(f"DEBUG reward for player {player}: {reward} - within step()")
+            if done and self.winner != winner_idx:
+                print("MISMATCH: env.winner vs step_logic winner!", self.winner, winner_idx)
+
+            # print(f"[DEBUG winner check] winner_idx={winner_idx}, self.winner={self.winner}, player_scores={[p[OWN_SCORE] for p in self.players]}")
 
 
-        return self._get_obs(), reward, done, False, {'reason': reason, 'winner': self.winner}
+        return self._get_obs(), reward, terminated, truncated, {'reason': reason, 'winner': self.winner}
 
 
 
@@ -698,15 +708,13 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
         while(not done):
             action = env.get_action(training)
             obs, reward, done, truncated, info = env.step(action)
+            # print(f"DEBUG step: done={done}, terminated={done}, reward={reward}, winner={info['winner']}")
             tag_prefix = f"Curriculum/{stage_name}" if stage_name else "Games"
 
             if training:
                 writer.add_scalar(f"{tag_prefix}/Step_Reward", reward, run_game)
                 for k in range(NUM_PLAYERS):
                     # # if change of score in current player: learn (action,reward)
-                    # old_score = env.old_obs[k][OWN_SCORE]
-                    # new_score = env.new_obs[k][OWN_SCORE]
-                    # dif_score = env.new_obs[k][OWN_SCORE] - env.old_obs[k][OWN_SCORE]
 
                     rew = 0 # sparse rewards   only on win/lose
                     if done:
@@ -717,6 +725,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
 
                     if rew != 0:
                         # print(k,'difs',env.new_obs[k][OWN_SCORE],env.old_obs[k][OWN_SCORE],dif)
+                        # print(f"[DEBUG play_games()] done={done}, env.winner={env.winner}, rew={rew}")
                         env.agents[k].learn(
                             env.old_obs[k],
                             env.last_actions[k],

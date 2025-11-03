@@ -129,8 +129,9 @@ def step_logic(players, player, action, throw_outcome, throw_score, WITH_HOG_CAL
         else:     #good roll without hog call
             #  reward = score - 0.1*(GOAL - (players[player][0]+players[player][2]))     #made it more conservaive
             #  reward = points_this_action + 0.01 * players[player][0]
-             reward = points_this_action + 0.01 * (players[player][0] - players[opponent][0])
              points_this_action = score
+            #  reward = points_this_action + 0.01 * (players[player][0] - players[opponent][0])
+             reward = score
              players[player][2] += score
 
              if players[player][2] + players[player][0] > GOAL:

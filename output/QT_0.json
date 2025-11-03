@@ -1,6 +1,6 @@
 {
     "num_actions": 4,
-    "learning_rate": 0.4998000499916677,
-    "epsilon": 0.9990504748417063,
-    "episode": 500
+    "learning_rate": 0.5,
+    "epsilon": 1.0,
+    "episode": 0
 }

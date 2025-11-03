@@ -136,6 +136,7 @@ def draw_text(screen,font,text,color,pos,center=False,antialias=False):
 # +-------------------------------------+
 
 TRAINING = True
+GLOBAL_STEP = 0      #global step counter
 if TRAINING:
     writer = SummaryWriter()
     # Writer will output to ./runs/ directory by default.
@@ -284,6 +285,9 @@ class PassThePigsAgent():
 
 
     def learn(self,old_obs,action,new_obs,reward,terminated,truncated,info,idx, stage_name):
+        print(f"[DBG learn] called for agent {idx}: terminated={terminated} (type={type(terminated)}), reward={reward}")
+        global GLOBAL_STEP 
+        
         if self.mode == 'QTable':
             old_obs = np.array(old_obs)
             new_obs = np.array(new_obs)
@@ -332,16 +336,21 @@ class PassThePigsAgent():
             self.episode_reward += reward
 
             #this is where we save log stats to tensorboard
-            if terminated:
+            if bool(terminated):
                 self.episode_rewards[self.episode % AVG_EP] = self.episode_reward
                 print(f"Logging to TensorBoard: episode {self.episode}, reward {self.episode_reward}, epsilon {self.epsilon} - inside leanr()")
-                self.episode += 1
+                # self.episode += 1
+                GLOBAL_STEP += 1
                 # role = "Leader" if idx==0 else "Follower"
                 print("Writer object exists:", writer)
-                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward", self.episode_reward, self.episode)
-                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward_{AVG_EP}", np.sum(self.episode_rewards)/AVG_EP, self.episode)
-                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/epsilon", self.epsilon, self.episode)
-                writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/learning_rate", self.learning_rate, self.episode)
+                try: 
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward", self.episode_reward, self.GLOBAL_STEP)
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward_{AVG_EP}", np.sum(self.episode_rewards)/AVG_EP, self.GLOBAL_STEP)
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/epsilon", self.epsilon, self.GLOBAL_STEP)
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/learning_rate", self.learning_rate, self.GLOBAL_STEP)
+                except Exception as e:
+                    print("[ERROR] writer.add_scalar failed:", e)
+
                 self.epsilon = epsilon_schedule(self.episode)
                 self.learning_rate = learning_schedule(self.episode)
                 self.episode_reward = 0
@@ -590,6 +599,12 @@ class PassThePigs_2Players_Env(gym.Env):
         )
         print(f"[DEBUG step_logic()] player={player}, action={action}, reward={reward}, done={done}, winner_idx={winner_idx}, reason_code={reason_code}")
 
+        #explicit casts in order to debug 
+        done = bool(done)
+        reward = float(reward)
+        points_this_action = int(points_this_action)
+        winner_idx = int(winner_idx) if winner_idx is not None else None
+        next_player = int(next_player)
 
         self.players = new_players.tolist()   #convert back to list
         self.player = int(next_player)
@@ -708,6 +723,8 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
         while(not done):
             action = env.get_action(training)
             obs, reward, done, truncated, info = env.step(action)
+            print(f"[DBG play_games] step returned done={done} (type={type(done)}), reward={reward}, info={info}")
+
             # print(f"DEBUG step: done={done}, terminated={done}, reward={reward}, winner={info['winner']}")
             tag_prefix = f"Curriculum/{stage_name}" if stage_name else "Games"
 
@@ -731,7 +748,7 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
                             env.last_actions[k],
                             env.new_obs[k],
                             rew, # dif,
-                            done,
+                            bool(done),
                             truncated,
                             info,
                             k, # idx for logging purposes

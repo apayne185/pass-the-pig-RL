@@ -136,7 +136,6 @@ def draw_text(screen,font,text,color,pos,center=False,antialias=False):
 # +-------------------------------------+
 
 TRAINING = True
-GLOBAL_STEP = 0      #global step counter
 if TRAINING:
     writer = SummaryWriter()
     # Writer will output to ./runs/ directory by default.
@@ -227,6 +226,7 @@ def load_QT_model(agent,model_name):
 class PassThePigsAgent():
     def __init__(self,mode,threshold=25):
         self.mode = mode
+        self.global_step = 0      #global step counter
         if mode == 'QTable': # Addressable as QTable[tuple(state)][action]
             if WITH_HOG_CALLS:
                 #own_score_bucket, opp_score_bucket, turn_score_bucket, hog_call (0-2), opp_last_action (0-3), opp_last_points_bucket (0-9), actions
@@ -286,8 +286,7 @@ class PassThePigsAgent():
 
     def learn(self,old_obs,action,new_obs,reward,terminated,truncated,info,idx, stage_name):
         print(f"[DBG learn] called for agent {idx}: terminated={terminated} (type={type(terminated)}), reward={reward}")
-        global GLOBAL_STEP 
-        
+
         if self.mode == 'QTable':
             old_obs = np.array(old_obs)
             new_obs = np.array(new_obs)
@@ -324,7 +323,7 @@ class PassThePigsAgent():
 
             old_state=tuple(old_obs_processed.astype(int))
             new_state=tuple(new_obs_processed.astype(int))
-            print(f"DEBUG old_state={old_state}, new_state={new_state}, action={action} - inside learn()")
+            # print(f"DEBUG old_state={old_state}, new_state={new_state}, action={action} - inside learn()")
 
 
 
@@ -338,22 +337,24 @@ class PassThePigsAgent():
             #this is where we save log stats to tensorboard
             if bool(terminated):
                 self.episode_rewards[self.episode % AVG_EP] = self.episode_reward
-                print(f"Logging to TensorBoard: episode {self.episode}, reward {self.episode_reward}, epsilon {self.epsilon} - inside leanr()")
-                # self.episode += 1
-                GLOBAL_STEP += 1
+                print(f"Logging to TensorBoard: episode {self.episode}, reward {self.episode_reward}, epsilon {self.epsilon} - inside learn()")
+                self.episode += 1
+                self.global_step += 1
                 # role = "Leader" if idx==0 else "Follower"
                 print("Writer object exists:", writer)
                 try: 
-                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward", self.episode_reward, self.GLOBAL_STEP)
-                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward_{AVG_EP}", np.sum(self.episode_rewards)/AVG_EP, self.GLOBAL_STEP)
-                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/epsilon", self.epsilon, self.GLOBAL_STEP)
-                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/learning_rate", self.learning_rate, self.GLOBAL_STEP)
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward", self.episode_reward, self.global_step)
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/reward_{AVG_EP}", np.sum(self.episode_rewards)/AVG_EP, self.global_step)
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/epsilon", self.epsilon, self.global_step)
+                    writer.add_scalar(f"Curriculum/{stage_name}/Agent({idx})/learning_rate", self.learning_rate, self.global_step)
                 except Exception as e:
                     print("[ERROR] writer.add_scalar failed:", e)
 
                 self.epsilon = epsilon_schedule(self.episode)
                 self.learning_rate = learning_schedule(self.episode)
                 self.episode_reward = 0
+                print(f"After - Logging to TensorBoard: episode {self.episode}, reward {self.episode_reward}, epsilon {self.epsilon}, learning rate: {self.learning_rate} - inside learn()")
+
 
 
         else:
@@ -597,7 +598,7 @@ class PassThePigs_2Players_Env(gym.Env):
             HOG_CALL_SCORE_2,
             GOAL
         )
-        print(f"[DEBUG step_logic()] player={player}, action={action}, reward={reward}, done={done}, winner_idx={winner_idx}, reason_code={reason_code}")
+        # print(f"[DEBUG step_logic()] player={player}, action={action}, reward={reward}, done={done}, winner_idx={winner_idx}, reason_code={reason_code}")
 
         #explicit casts in order to debug 
         done = bool(done)
@@ -723,9 +724,8 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
         while(not done):
             action = env.get_action(training)
             obs, reward, done, truncated, info = env.step(action)
-            print(f"[DBG play_games] step returned done={done} (type={type(done)}), reward={reward}, info={info}")
+            # print(f"[DBG play_games] step returned done={done} (type={type(done)}), reward={reward}, info={info}")
 
-            # print(f"DEBUG step: done={done}, terminated={done}, reward={reward}, winner={info['winner']}")
             tag_prefix = f"Curriculum/{stage_name}" if stage_name else "Games"
 
             if training:
@@ -788,10 +788,6 @@ def play_games(env, max_games=10_000,verbose=False,training=False, stage_name=No
         if training:
             tag_prefix = f"Curriculum/{stage_name}" if stage_name else "Games"
             writer.add_scalar(f"{tag_prefix}/Intermediate_Reward", reward, run_game)
-
-
-            # writer.add_scalar("Games/ratio(0)", win_ratio, run_game)
-            # writer.add_scalar("Games/ratio(1)", 100 - win_ratio, run_game)
             writer.add_scalar(f"{tag_prefix}/WinRate_Player1", win_rate_p1, run_game)
             writer.add_scalar(f"{tag_prefix}/WinRate_Player2", win_rate_p2, run_game)
             run_game += 1
@@ -850,7 +846,7 @@ if __name__ == "__main__":
         num_games, num_games1 = play_games(env, GAMES_PER_EPOCH, training=TRAINING, stage_name=stage_name)
 
         if TRAINING:
-            writer.add_scalar(f"Curriculum/{stage_name}_WinRate_Player2", num_games1/ num_games, run_epoch)
+            # writer.add_scalar(f"Curriculum/{stage_name}_WinRate_Player2", num_games1/ num_games, run_epoch)
             writer.add_scalar(f"Curriculum/{stage_name}_Time", time.time() - start, run_epoch)
 
             run_epoch += 1
